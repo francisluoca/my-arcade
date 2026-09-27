@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Neon Watch — Endless Tower Defense</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#080b18;color:#ecf5ff;font-family:system-ui,sans-serif}main{max-width:1160px;margin:auto;padding:28px}header,.stats,.actions{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}h1{margin:0;font-size:32px;letter-spacing:-1px}h1 span{color:#56f4d1}p{color:#9caec9;line-height:1.5}.eyebrow{font-size:11px;letter-spacing:3px;color:#56f4d1;margin:0 0 8px}.stats{margin:24px 0;background:#11182c;padding:16px 22px;border:1px solid #26324b;border-radius:14px}.stat{color:#9caec9;font-size:12px}.stat strong{display:block;font-size:24px;color:#fff;margin-top:3px}.layout{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:18px}.field{position:relative;align-self:start;border:1px solid #2d4057;border-radius:16px;overflow:hidden;background:#0b1222}canvas{display:block;width:100%;aspect-ratio:800/560;touch-action:manipulation}.sidebar{background:#11182c;border:1px solid #26324b;padding:18px;border-radius:16px}h2{font-size:17px;margin:0 0 8px}.small{font-size:13px}button{font:inherit;cursor:pointer;border:1px solid #33435f;border-radius:10px;background:#19253c;color:#ecf5ff;padding:12px;transition:background .15s}button:hover:not(:disabled){background:#263956}button:focus-visible{outline:3px solid #fff;outline-offset:3px}button:disabled{opacity:.45;cursor:default}.unit{display:block;width:100%;text-align:left;margin:12px 0}.unit strong{display:flex;justify-content:space-between}.unit small{display:block;color:#acbad0;margin-top:7px;line-height:1.4}.unit[aria-pressed=true]{border-color:#56f4d1;background:#17413e;box-shadow:0 0 16px #56f4d122}.primary{background:#56f4d1;color:#071a21;border-color:#56f4d1;font-weight:750}.primary:hover:not(:disabled){background:#98ffe7}.actions{margin-top:16px}.actions button{flex:1}#message{min-height:42px;margin:14px 0 0;font-size:14px}#overlay{position:absolute;inset:0;background:#080b18df;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px}#overlay[hidden]{display:none}#overlay h2{font-size:36px}footer{font-size:12px;color:#7486a5;margin-top:24px}@media(max-width:760px){main{padding:16px}.layout{grid-template-columns:1fr}.sidebar{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.sidebar h2,.sidebar>p{grid-column:1/-1}.unit{margin:0;padding:10px}.unit strong{display:block;font-size:13px}.unit small{font-size:11px}h1{font-size:27px}}
+.defender-panel{grid-column:1/-1;border-top:1px solid #33435f;margin-top:16px;padding-top:16px}.defender-panel button{width:100%;margin-top:8px}.danger{color:#ff9fb5}.defender-panel[hidden]{display:none}
+</style>
+</head>
+<body>
+<main>
+<header><div><p class="eyebrow">ENDLESS TOWER DEFENSE</p><h1>NEON <span>WATCH</span></h1></div><p class="small">Build your crew. Hold the line.</p></header>
+<section class="stats" aria-label="Game statistics"><div class="stat">BASE HEALTH<strong id="health">20 / 20</strong></div><div class="stat">CREDITS<strong id="money">180</strong></div><div class="stat">WAVE<strong id="wave">0</strong></div><div class="stat">STATUS<strong id="status">Build phase</strong></div></section>
+<div class="layout"><div class="field"><canvas id="game" width="800" height="560" aria-label="Tower defense battlefield. Select a defender, then click an empty circular build pad."></canvas><div id="overlay" hidden><div><p class="eyebrow">THE LINE HAS FALLEN</p><h2>Good stand, commander.</h2><p id="result"></p><button class="primary" id="restart">Play again</button></div></div></div>
+<aside class="sidebar"><h2>Recruit defenders</h2><p class="small">Select a crew member, then click a glowing build pad. They attack automatically.</p>
+<button class="unit" data-type="scout" aria-pressed="false"><strong><span>● Pulse Scout</span><span>60 cr</span></strong><small>Fast shots · balanced range<br>Reliable single-target damage</small></button>
+<button class="unit" data-type="sniper" aria-pressed="false"><strong><span>◆ Rail Ranger</span><span>100 cr</span></strong><small>Slow shots · long range<br>Heavy single-target damage</small></button>
+<button class="unit" data-type="blast" aria-pressed="false"><strong><span>✦ Nova Mage</span><span>120 cr</span></strong><small>Area blasts · short range<br>Hits groups of enemies</small></button>
+<button class="unit" data-type="frost" aria-pressed="false"><strong><span>❄ Frost Warden</span><span>90 cr</span></strong><small>Slows one enemy by 40% for 2 seconds<br>Gives your crew more time to attack</small></button>
+<button class="unit" data-type="tesla" aria-pressed="false"><strong><span>ϟ Tesla</span><span>150 cr</span></strong><small>Lightning jumps to 3 nearby enemies<br>Each jump deals 25% less damage</small></button>
+<button class="unit" data-type="blaster" aria-pressed="false"><strong><span>✹ Blaster</span><span>80 cr</span></strong><small>Very fast shots · short range<br>Steady damage against passing enemies</small></button>
+<section id="defenderPanel" class="defender-panel" hidden><h2 id="defenderName"></h2><p id="defenderStats" class="small"></p><p id="upgradePreview" class="small"></p><button id="upgrade" class="primary">Upgrade</button><button id="remove" class="danger">Delete defender</button><p class="small">Deleting refunds 50% of all credits spent on this defender.</p></section><p class="small">Click a placed defender to upgrade or delete it.</p>
+<p class="small">Every cleared wave earns credits. Enemies grow stronger forever. Survive as long as you can.</p></aside></div>
+<div class="actions"><button id="start" class="primary">Start wave 1</button><button id="pause" disabled>Pause</button><button id="speed">Speed: 1×</button></div>
+<p id="message" role="status" aria-live="polite">Welcome! Spend your 180 credits on defenders before starting the first wave.</p>
+<details><summary>Enemy field guide · bosses every 5 waves</summary><p class="small">● Grunt: balanced attacker · wave 1<br>➤ Runner: fast, fragile · wave 2<br>■ Bulwark: heavy health, takes 30% less damage · wave 3<br>+ Mender: slowly regenerates its own health · wave 4<br>◆ Swarm: small, quick attackers arriving in pairs · wave 6<br>★ Overlord: massive health, 20% armor, deals 8 base damage · every 5th wave. Boss waves award 100 bonus credits.</p></details>
+<footer>One player · mouse or trackpad only · no downloads or accounts</footer>
+</main>
+<script>
+(() => {
+ 'use strict';
+ const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+ const ui=Object.fromEntries(['health','money','wave','status','start','pause','speed','message','overlay','result','restart','defenderPanel','defenderName','defenderStats','upgradePreview','upgrade','remove'].map(id=>[id,document.getElementById(id)]));
+ const buttons=[...document.querySelectorAll('.unit')];
+ const types={scout:{cost:60,range:145,damage:15,rate:.45,color:'#56f4d1'},sniper:{cost:100,range:240,damage:65,rate:1.35,color:'#c8a0ff'},blast:{cost:120,range:125,damage:24,rate:1.05,color:'#ffbf69'},frost:{cost:90,range:155,damage:10,rate:.9,color:'#80dfff'},tesla:{cost:150,range:150,damage:30,rate:1.1,color:'#fcf580'},blaster:{cost:80,range:105,damage:9,rate:.18,color:'#ff83b8'}};
+ const enemyTypes={
+  grunt:{name:'Grunt',hp:1,speed:1,armor:0,leak:1,radius:10,color:'#ff658f',symbol:'●'},
+  runner:{name:'Runner',hp:.6,speed:1.7,armor:0,leak:1,radius:9,color:'#ffe66d',symbol:'➤'},
+  bulwark:{name:'Bulwark',hp:2.6,speed:.65,armor:.3,leak:3,radius:15,color:'#ffad66',symbol:'■'},
+  mender:{name:'Mender',hp:1.5,speed:.85,armor:0,leak:2,radius:12,color:'#79ffb0',symbol:'+'},
+  swarm:{name:'Swarm',hp:.4,speed:1.35,armor:0,leak:1,radius:7,color:'#a7b6ff',symbol:'◆'},
+  boss:{name:'Overlord',hp:12,speed:.5,armor:.2,leak:8,radius:24,color:'#ed79ff',symbol:'★'}
+ };
+ function spawnEnemy(type,offset=0){const k=enemyTypes[type],hp=(36*Math.pow(1.17,wave-1)+wave*5)*k.hp;enemies.push({type,distance:offset,hp,max:hp,speed:Math.min(105,43+wave*2)*k.speed,...point(offset)})}
+ function enemyForWave(slot){const pool=['grunt'];if(wave>=2)pool.push('runner');if(wave>=3)pool.push('bulwark');if(wave>=4)pool.push('mender');if(wave>=6)pool.push('swarm');return pool[slot%pool.length]}
+ function hitEnemy(enemy,damage){enemy.hp-=damage*(1-enemyTypes[enemy.type].armor)}
+ const path=[[-25,110],[180,110],[180,280],[400,280],[400,130],[630,130],[630,420],[825,420]];
+ const pads=[[85,195],[105,45],[255,180],[270,355],[100,355],[335,80],[485,205],[520,55],[705,210],[550,320],[710,340],[525,485],[335,440],[720,500]];
+ const lengths=path.slice(1).map((p,i)=>Math.hypot(p[0]-path[i][0],p[1]-path[i][1]));
+ const total=lengths.reduce((a,b)=>a+b,0);
+ let selectedTower=null;
+ const names={scout:"Pulse Scout",sniper:"Rail Ranger",blast:"Nova Mage",frost:"Frost Warden",tesla:"Tesla",blaster:"Blaster"};
+ const maxLevel=5;
+ function stats(t){const k=types[t.type],n=(t.level||1)-1;return {...k,damage:Math.round(k.damage*Math.pow(1.5,n)),range:k.range+n*15,rate:k.rate*Math.pow(.9,n)}}
+ function upgradeCost(t){return Math.ceil(types[t.type].cost*.75*t.level)}
+ function refund(t){return Math.floor(t.spent/2)}
+ function refreshDefender(){
+  const t=selectedTower;ui.defenderPanel.hidden=!t;if(!t)return;
+  const k=stats(t);ui.defenderName.textContent=names[t.type]+" · Level "+t.level;
+  ui.defenderStats.textContent=k.damage+" damage · "+k.range+" range · "+(1/k.rate).toFixed(1)+" shots/sec";
+  const max=t.level>=maxLevel,cost=upgradeCost(t);
+  const next=stats({...t,level:t.level+1});
+  ui.upgradePreview.textContent=max?"Maximum level reached.":"Next: "+next.damage+" damage · "+next.range+" range · "+(1/next.rate).toFixed(1)+" shots/sec";
+  ui.upgrade.textContent=max?"Maximum level":"Upgrade — "+cost+" cr";ui.upgrade.disabled=over||max||money<cost;
+  ui.remove.textContent="Delete defender — refund "+refund(t)+" cr";ui.remove.disabled=over;
+ }
+ let money,health,wave,cleared,towers,enemies,effects,selected,active,paused,over,speed,remaining,spawnTimer,hover=-1,last=0;
+ function message(text){ui.message.textContent=text}
+ function refresh(){refreshDefender();ui.health.textContent=health+' / 20';ui.money.textContent=money;ui.wave.textContent=wave;ui.status.textContent=over?'Base lost':paused?'Paused':active?(wave%5===0?'BOSS WAVE':'Under attack'):'Build phase';ui.start.disabled=active||over;ui.start.textContent='Start '+((wave+1)%5===0?'BOSS wave ':'wave ')+(wave+1);ui.pause.disabled=!active||over;ui.pause.textContent=paused?'Resume':'Pause';ui.speed.textContent='Speed: '+speed+'×';buttons.forEach(b=>{b.disabled=over||money<types[b.dataset.type].cost;b.setAttribute('aria-pressed',String(selected===b.dataset.type))})}
+ function reset(){selectedTower=null;money=180;health=20;wave=0;cleared=0;towers=[];enemies=[];effects=[];selected=null;active=false;paused=false;over=false;speed=1;remaining=0;spawnTimer=0;ui.overlay.hidden=true;message('Welcome! Spend your 180 credits on defenders before starting the first wave.');refresh()}
+ function point(distance){for(let i=0;i<lengths.length;i++){if(distance<=lengths[i]){const t=distance/lengths[i];return{x:path[i][0]+(path[i+1][0]-path[i][0])*t,y:path[i][1]+(path[i+1][1]-path[i][1])*t}}distance-=lengths[i]}return{x:825,y:420}}
+ buttons.forEach(b=>b.addEventListener('click',()=>{selectedTower=null;selected=selected===b.dataset.type?null:b.dataset.type;message(selected?'Click an empty circular pad to place your '+b.querySelector('strong span').textContent.slice(2)+'.':'Selection cleared.');refresh()}));
+ function padAt(event){const r=canvas.getBoundingClientRect(),x=(event.clientX-r.left)*800/r.width,y=(event.clientY-r.top)*560/r.height;return pads.findIndex(p=>Math.hypot(p[0]-x,p[1]-y)<27)}
+ canvas.addEventListener('pointermove',e=>{hover=padAt(e);canvas.style.cursor=hover>=0?'pointer':'default'});
+ canvas.addEventListener('pointerleave',()=>hover=-1);
+ canvas.addEventListener('click',e=>{if(over)return;const i=padAt(e);if(i<0){message('Choose a circular build pad beside the road.');return}const existing=towers.find(t=>t.pad===i);if(existing){selectedTower=existing;selected=null;message('Defender selected. Upgrade its power or delete it for a partial refund.');refresh();return}if(!selected){message('Select a defender from the recruit panel first.');return}const kind=types[selected];if(money<kind.cost){message('Not enough credits. Clear a wave to earn more.');return}money-=kind.cost;towers.push({pad:i,type:selected,x:pads[i][0],y:pads[i][1],cooldown:0,level:1,spent:kind.cost});message('Defender ready. '+(active?'Keep holding the line!':'Start the next wave when you are ready.'));refresh()});
+ ui.upgrade.addEventListener('click',()=>{const t=selectedTower;if(over||!t||!towers.includes(t)||t.level>=maxLevel)return;const cost=upgradeCost(t);if(money<cost)return;money-=cost;t.spent+=cost;t.level++;t.cooldown=Math.min(t.cooldown,stats(t).rate);message(names[t.type]+' upgraded to level '+t.level+'!');refresh()});
+ ui.remove.addEventListener('click',()=>{const t=selectedTower;if(over||!t||!towers.includes(t))return;const amount=refund(t);money+=amount;towers=towers.filter(other=>other!==t);selectedTower=null;message('Defender deleted. +'+amount+' credits refunded. Its pad is available again.');refresh()});
+ ui.start.addEventListener('click',()=>{if(active||over)return;if(!towers.length){message('Recruit at least one defender before starting a wave.');return}wave++;remaining=7+wave*3;spawnTimer=0;active=true;paused=false;message(wave%5===0?'BOSS WAVE '+wave+'! An Overlord approaches. Clear the wave for 100 bonus credits.':'Wave '+wave+' incoming! Defend the base.');refresh()});
+ ui.pause.addEventListener('click',()=>{if(active&&!over){paused=!paused;refresh()}});
+ ui.speed.addEventListener('click',()=>{speed=speed===1?2:1;refresh()});ui.restart.addEventListener('click',reset);
+ document.addEventListener('visibilitychange',()=>{if(document.hidden&&active&&!over){paused=true;refresh()}});
+ function update(dt){if(!active||paused||over)return;spawnTimer-=dt;if(remaining>0&&spawnTimer<=0){const type=wave%5===0&&remaining===1?'boss':enemyForWave(remaining);spawnEnemy(type);if(type==='swarm')spawnEnemy(type,-20);remaining--;spawnTimer=Math.max(.28,.85-wave*.02)}
+ for(const e of enemies){if(e.type==='mender'&&e.hp>0)e.hp=Math.min(e.max,e.hp+e.max*.025*dt);const slowedTime=Math.min(dt,e.slow||0);e.distance+=e.speed*(dt-slowedTime*.4);e.slow=Math.max(0,(e.slow||0)-dt);Object.assign(e,point(e.distance));if(e.distance>=total){health=Math.max(0,health-enemyTypes[e.type].leak);e.escaped=true}}
+ enemies=enemies.filter(e=>!e.escaped);
+ if(health<=0){over=true;active=false;ui.overlay.hidden=false;ui.result.textContent='You cleared '+cleared+' wave'+(cleared===1?'':'s')+' and reached wave '+wave+'.';message('Base lost. Play again to try a different defense.');refresh();return}
+ for(const t of towers){t.cooldown-=dt;if(t.cooldown>0)continue;const k=stats(t);let target=null;for(const e of enemies){if(e.hp>0&&Math.hypot(e.x-t.x,e.y-t.y)<=k.range&&(!target||e.distance>target.distance))target=e}if(target){t.cooldown=k.rate;effects.push({x:t.x,y:t.y,tx:target.x,ty:target.y,color:k.color,life:.18,blast:t.type==='blast'});if(t.type==='blast'){for(const e of enemies)if(Math.hypot(e.x-target.x,e.y-target.y)<58)hitEnemy(e,k.damage)}else if(t.type==='tesla'){
+ const struck=new Set();let current=target,previous=t;
+ for(let jump=0;jump<3&&current;jump++){
+  struck.add(current);hitEnemy(current,k.damage*Math.pow(.75,jump));
+  effects.push({x:previous.x,y:previous.y,tx:current.x,ty:current.y,color:k.color,life:.18,blast:false});
+  previous=current;current=enemies.filter(e=>e.hp>0&&!struck.has(e)&&Math.hypot(e.x-previous.x,e.y-previous.y)<=95).sort((a,b)=>Math.hypot(a.x-previous.x,a.y-previous.y)-Math.hypot(b.x-previous.x,b.y-previous.y))[0];
+ }
+ }else {hitEnemy(target,k.damage);if(t.type==='frost')target.slow=2}}}
+ enemies=enemies.filter(e=>e.hp>0);effects.forEach(e=>e.life-=dt);effects=effects.filter(e=>e.life>0);
+ if(!remaining&&!enemies.length){active=false;cleared=wave;const reward=85+wave*15+(wave%5===0?100:0);money+=reward;message('Wave '+wave+' cleared! +'+reward+' credits. Recruit more defenders, then start the next wave.')}refresh()}
+ function circle(x,y,r,fill,stroke){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);if(fill){ctx.fillStyle=fill;ctx.fill()}if(stroke){ctx.strokeStyle=stroke;ctx.stroke()}}
+ function drawDefender(t){
+ const k=types[t.type],level=t.level||1,r=13+level;
+ ctx.save();ctx.translate(t.x,t.y);
+ // Each rank adds a permanent, distinct silhouette detail.
+ ctx.shadowColor=k.color;ctx.shadowBlur=8+level*3;
+ if(level>=2){
+  ctx.fillStyle=k.color;ctx.strokeStyle='#efffff';ctx.lineWidth=1;
+  for(const side of [-1,1]){ctx.beginPath();ctx.moveTo(side*(r-3),-9);ctx.lineTo(side*(r+7),-5);ctx.lineTo(side*(r+7),8);ctx.lineTo(side*(r-3),12);ctx.closePath();ctx.fill();ctx.stroke()}
+ }
+ circle(0,0,r,k.color);
+ if(level>=3){ctx.lineWidth=2;circle(0,0,r+10,null,k.color)}
+ ctx.shadowBlur=0;
+ if(level>=4){
+  ctx.fillStyle='#f5ffff';ctx.beginPath();ctx.moveTo(-10,-r+3);ctx.lineTo(-13,-r-10);ctx.lineTo(-4,-r-5);ctx.lineTo(0,-r-15);ctx.lineTo(4,-r-5);ctx.lineTo(13,-r-10);ctx.lineTo(10,-r+3);ctx.closePath();ctx.fill();
+ }
+ if(level>=5){
+  ctx.strokeStyle='#ffffff';ctx.lineWidth=2;circle(0,0,r+14,null,'#ffffff');
+  for(let i=0;i<4;i++){const a=Math.PI/4+i*Math.PI/2,x=Math.cos(a)*(r+14),y=Math.sin(a)*(r+14);ctx.fillStyle=k.color;ctx.beginPath();ctx.moveTo(x,y-5);ctx.lineTo(x+5,y);ctx.lineTo(x,y+5);ctx.lineTo(x-5,y);ctx.closePath();ctx.fill()}
+ }
+ // A unique emblem keeps each defender class recognizable at every rank.
+ const emblems={scout:'●',sniper:'◆',blast:'✦',frost:'❄',tesla:'ϟ',blaster:'✹'};
+ circle(0,0,r-4,'#09131e');ctx.fillStyle=k.color;ctx.font='bold '+(17+level)+'px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(emblems[t.type],0,0);
+ ctx.shadowBlur=0;ctx.fillStyle='#ecf5ff';ctx.font='bold 10px system-ui';ctx.fillText('L'+level,0,43);
+ ctx.restore();
+ }
+ function draw(){ctx.clearRect(0,0,800,560);ctx.strokeStyle='#182139';ctx.lineWidth=1;for(let x=0;x<800;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,560);ctx.stroke()}for(let y=0;y<560;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(800,y);ctx.stroke()}
+ ctx.lineJoin='round';ctx.lineCap='round';ctx.beginPath();path.forEach((p,i)=>i?ctx.lineTo(...p):ctx.moveTo(...p));ctx.strokeStyle='#29374e';ctx.lineWidth=44;ctx.stroke();ctx.strokeStyle='#172338';ctx.lineWidth=36;ctx.stroke();ctx.setLineDash([5,13]);ctx.strokeStyle='#53627b';ctx.lineWidth=2;ctx.stroke();ctx.setLineDash([]);
+ ctx.font='bold 11px system-ui';ctx.fillStyle='#ff7896';ctx.fillText('INCOMING →',18,72);ctx.fillStyle='#56f4d1';ctx.fillText('BASE →',730,385);
+ pads.forEach((p,i)=>{const occupied=towers.some(t=>t.pad===i);ctx.lineWidth=2;circle(...p,23,occupied?'#172438':'#101d30',(hover===i||selectedTower?.pad===i)?'#ecf5ff':'#38516c');if(!occupied){ctx.fillStyle='#6c92ac';ctx.font='22px system-ui';ctx.textAlign='center';ctx.fillText('+',p[0],p[1]+7);ctx.textAlign='left'}});
+ const focused=towers.find(t=>t.pad===hover)||selectedTower;if(focused||(selected&&hover>=0)){const p=focused||{x:pads[hover][0],y:pads[hover][1],type:selected};circle(p.x,p.y,stats(p).range,'#56f4d10d','#56f4d144')}
+ for(const t of towers)drawDefender(t);
+
+ for(const e of enemies){const k=enemyTypes[e.type],r=k.radius;ctx.shadowColor=k.color;ctx.shadowBlur=e.type==='boss'?22:0;circle(e.x,e.y,r,k.color);ctx.shadowBlur=0;if(e.slow>0){ctx.lineWidth=2;circle(e.x,e.y,r+4,null,'#80dfff')}ctx.fillStyle='#11182c';ctx.textAlign='center';ctx.font='bold '+(r+3)+'px system-ui';ctx.fillText(k.symbol,e.x,e.y+r*.4);ctx.textAlign='left';const width=r*2+8;ctx.fillRect(e.x-width/2,e.y-r-10,width,4);ctx.fillStyle='#56f4d1';ctx.fillRect(e.x-width/2,e.y-r-10,width*Math.max(0,e.hp/e.max),4)}
+ const boss=enemies.find(e=>e.type==='boss');if(boss){ctx.fillStyle='#080b18dd';ctx.fillRect(200,12,400,45);ctx.fillStyle='#ed79ff';ctx.font='bold 12px system-ui';ctx.textAlign='center';ctx.fillText('OVERLORD · '+Math.ceil(boss.hp)+' / '+Math.ceil(boss.max)+' HP',400,30);ctx.textAlign='left';ctx.fillStyle='#34233e';ctx.fillRect(215,40,370,7);ctx.fillStyle='#ed79ff';ctx.fillRect(215,40,370*Math.max(0,boss.hp/boss.max),7)}
+ for(const e of effects){ctx.globalAlpha=e.life/.18;ctx.strokeStyle=e.color;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(e.x,e.y);ctx.lineTo(e.tx,e.ty);ctx.stroke();if(e.blast)circle(e.tx,e.ty,58*(1-e.life/.18),null,e.color)}ctx.globalAlpha=1;
+ if(paused){ctx.fillStyle='#080b1899';ctx.fillRect(0,0,800,560);ctx.fillStyle='#fff';ctx.textAlign='center';ctx.font='bold 36px system-ui';ctx.fillText('PAUSED',400,280);ctx.textAlign='left'}}
+ function frame(now){const dt=Math.min((now-last)/1000,.05);last=now;update(dt*speed);draw();requestAnimationFrame(frame)}
+ reset();requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
