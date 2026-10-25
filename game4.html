@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Steel Front — Armored Warfare</title><style>
+*{box-sizing:border-box}body{margin:0;background:#101611;color:#eeeade;font-family:system-ui,sans-serif}main{max-width:1200px;margin:auto;padding:24px}header{display:flex;align-items:center;justify-content:space-between;gap:20px}h1{margin:0;font-size:36px;letter-spacing:-1px}h1 span{color:#e5bc74}.eyebrow{color:#a3ad8f;font:10px monospace;letter-spacing:3px}p{color:#a5ad9b;font-size:13px;line-height:1.7}.hud{display:flex;gap:24px;flex-wrap:wrap;padding:17px 20px;background:#1d271e;border:1px solid #414b37;border-radius:9px;margin:20px 0 14px;font:12px monospace}.hud b{color:#e5bc74}.field{position:relative}canvas{width:100%;display:block;background:#495541;border:1px solid #667151;border-radius:10px;touch-action:none;cursor:crosshair}.overlay{position:absolute;inset:0;display:grid;place-items:center;background:#0e150ee8;text-align:center;border-radius:10px;padding:24px}.overlay[hidden]{display:none}.overlay article{max-width:550px}.overlay h2{font-size:42px;margin:12px 0}.overlay button,header button{border:1px solid #e5bc74;background:#e5bc74;color:#211e14;border-radius:6px;padding:13px 25px;font-weight:bold;cursor:pointer}button:focus-visible,canvas:focus-visible{outline:3px solid white;outline-offset:3px}.bottom{display:flex;justify-content:space-between;gap:20px;align-items:center}.touch{display:flex;gap:8px;flex-wrap:wrap}.touch button{background:#2c3929;color:#eeeade;border:1px solid #657153;border-radius:6px;padding:12px;touch-action:none;min-width:44px}@media(pointer:fine){.touch{display:none}}@media(max-width:600px){main{padding:14px}h1{font-size:27px}.hud{gap:12px}.overlay h2{font-size:28px}.overlay p{font-size:11px}.bottom{display:block}}
+.arcade-home{display:inline-block;margin-bottom:20px;padding:10px 16px;color:#e5bc74;border:1px solid #e5bc7450;border-radius:7px;text-decoration:none;font-size:13px}.arcade-home:hover{background:#e5bc7415}</style></head><body><main><a class="arcade-home" href="index.html">← Home</a><header><div><div class="eyebrow">TACTICAL ARMORED COMBAT</div><h1>STEEL <span>FRONT</span></h1></div><button id="pause">Pause</button></header><div class="hud"><span>ARMOR <b id="hp">100</b></span><span>DESTROYED <b id="kills">0</b></span><span>WAVE <b id="wave">1</b></span><span>RELOAD <b id="reload">READY</b></span><span>CAPTURE <b id="capture">0%</b></span></div><div class="field"><canvas id="battle" width="1120" height="680" tabindex="0" aria-label="Tank battlefield. WASD drive and turn, mouse aim, click fire. Capture the center and defeat three enemy waves."></canvas><div class="overlay" id="overlay"><article><div class="eyebrow">OPERATION / IRON VALLEY</div><h2 id="title">Take the high ground.</h2><p id="description">Lead three friendly tanks to capture the central outpost and survive three waves of enemy armor. You are inside the tank: turn the turret to look around. Aim for side and rear armor to deal more damage. Buildings stop shells. Your southern supply depot slowly repairs your tank.</p><button id="play">Deploy tank →</button><p>W/S forward & reverse · A/D turn hull · Move mouse to aim · Click / Space fire<br>Q/E turn turret · P pause · Green depot repairs armor</p></article></div></div><div class="bottom"><p id="status" role="status">Original arcade tank combat. Capture the outpost and clear all three waves.</p><p>AP SHELLS · DIRECTIONAL ARMOR · DESTRUCTIBLE ENEMIES</p></div><div class="touch"><button data-key="w">Forward</button><button data-key="s">Reverse</button><button data-key="a">↶ Hull</button><button data-key="d">Hull ↷</button><button data-key="q">↶ Turret</button><button data-key="e">Turret ↷</button><button data-key=" ">Fire</button></div></main><script>
+'use strict';
+const canvas=document.getElementById('battle'),ctx=canvas.getContext('2d'),$=id=>document.getElementById(id),W=2400,H=1600,VW=1120,VH=680;
+const cover=[{x:185,y:135,w:150,h:75},{x:790,y:125,w:145,h:85},{x:140,y:380,w:110,h:100},{x:865,y:390,w:105,h:85},{x:435,y:110,w:70,h:45},{x:630,y:470,w:70,h:50}];
+cover.push(...[{x:350,y:750,w:160,h:110},{x:1750,y:820,w:150,h:110},{x:850,y:550,w:130,h:90},{x:1450,y:1150,w:160,h:110},{x:500,y:1250,w:120,h:100},{x:1900,y:300,w:120,h:160},{x:1550,y:480,w:140,h:80},{x:2000,y:1250,w:160,h:80}]);
+let camera={x:0,y:0},cursor={x:560,y:340};
+function follow(){camera.x=Math.max(0,Math.min(W-VW,(player?.x??W/2)-VW/2));camera.y=Math.max(0,Math.min(H-VH,(player?.y??H/2)-VH/2));if(mouseAim){pointer.x=cursor.x+camera.x;pointer.y=cursor.y+camera.y}}
+const scenery=Array.from({length:450},(_,i)=>({x:(i*347+53)%W,y:(i*193+19)%H,r:2+(i%5)}));
+let allies=[];
+let player,enemies=[],shells=[],sparks=[],wrecks=[],keys=new Set(),pointer={x:560,y:0},mouseAim=false,firing=false,playing=false,paused=false,last=0,wave=1,kills=0,capture=0,transition=0,elapsed=0;
+function tank(x,y,angle,enemy=false){return{x,y,angle,turret:angle,hp:enemy?65:100,max:enemy?65:100,cd:enemy?1.2:0,enemy,r:23}}
+function spawn(){const points=[[150,150],[2250,150],[1200,150],[150,800],[2250,800]];for(let i=0;i<wave+1;i++){const [x,y]=points[(i+wave-1)%points.length];enemies.push(tank(x,y,Math.PI/2,true))}$('status').textContent='Enemy wave '+wave+' approaching. Hold the outpost!'}
+function start(){player=tank(1200,1490,-Math.PI/2);enemies=[];allies=[-95,95,160].map((offset,i)=>({...tank(player.x+offset,player.y-60,-Math.PI/2),ally:true,name:['ECHO','BRAVO','DELTA'][i],hp:100}));shells=[];sparks=[];wrecks=[];keys.clear();firing=false;mouseAim=false;wave=1;kills=0;capture=0;transition=0;elapsed=0;paused=false;playing=true;spawn();$('overlay').hidden=true;$('pause').textContent='Pause';canvas.focus()}
+function end(win){playing=false;keys.clear();firing=false;$('title').textContent=win?'Sector secured.':'Tank knocked out.';$('description').textContent=(win?'Outpost captured and all enemy waves defeated. ':'Your crew fought hard. ')+kills+' tanks destroyed. Capture: '+Math.floor(capture)+'%.';$('play').textContent='Deploy again →';$('overlay').hidden=false}
+function pause(){if(!playing)return;paused=!paused;keys.clear();firing=false;$('pause').textContent=paused?'Resume':'Pause';$('status').textContent=paused?'Paused — press P to resume':'Hold the outpost and watch your flanks.'}
+function normalize(a){return Math.atan2(Math.sin(a),Math.cos(a))}
+function turn(a,b,rate){return a+Math.max(-rate,Math.min(rate,normalize(b-a)))}
+function blocked(x,y,r=22){return x<r||y<r||x>W-r||y>H-r||cover.some(b=>x>b.x-r&&x<b.x+b.w+r&&y>b.y-r&&y<b.y+b.h+r)}
+function move(t,speed,dt){const x=t.x+Math.cos(t.angle)*speed*dt,y=t.y+Math.sin(t.angle)*speed*dt;if(!blocked(x,t.y))t.x=x;if(!blocked(t.x,y))t.y=y}
+function burst(x,y,color,n=12){for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,s=30+Math.random()*130;sparks.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:.25+Math.random()*.5,color})}}
+function fire(t){if(t.cd>0||t.hp<=0)return;t.cd=t.enemy?2.5:1.1;shells.push({x:t.x+Math.cos(t.turret)*37,y:t.y+Math.sin(t.turret)*37,vx:Math.cos(t.turret)*510,vy:Math.sin(t.turret)*510,enemy:t.enemy,life:2.4});burst(t.x+Math.cos(t.turret)*39,t.y+Math.sin(t.turret)*39,'#ffe7a2',5)}
+function lineClear(a,b){const d=Math.hypot(b.x-a.x,b.y-a.y);for(let t=25;t<d;t+=18)if(blocked(a.x+(b.x-a.x)*t/d,a.y+(b.y-a.y)*t/d,2))return false;return true}
+function update(dt){follow();elapsed+=dt;player.cd=Math.max(0,player.cd-dt);const steering=Number(keys.has('d')||keys.has('arrowright'))-Number(keys.has('a')||keys.has('arrowleft'));player.angle+=steering*1.8*dt;move(player,(Number(keys.has('w')||keys.has('arrowup'))*145-Number(keys.has('s')||keys.has('arrowdown'))*90),dt);
+if(mouseAim)player.turret=turn(player.turret,Math.atan2(pointer.y-player.y,pointer.x-player.x),3.2*dt);if(keys.has('q')||keys.has('e')){mouseAim=false;player.turret+=(Number(keys.has('e'))-Number(keys.has('q')))*2.1*dt}if(firing||keys.has(' '))fire(player);
+if(player.x>1100&&player.x<1300&&player.y>1430)player.hp=Math.min(100,player.hp+5*dt);
+const near=[player,...allies.filter(t=>t.hp>0)].some(t=>Math.hypot(t.x-1200,t.y-800)<90),contested=enemies.some(t=>t.hp>0&&Math.hypot(t.x-1200,t.y-800)<105);if(near&&!contested)capture=Math.min(100,capture+10*dt);
+for(const [i,t] of allies.entries()){
+ if(t.hp<=0)continue;t.cd=Math.max(0,t.cd-dt);
+ const target=enemies.filter(e=>e.hp>0).sort((a,b)=>Math.hypot(a.x-t.x,a.y-t.y)-Math.hypot(b.x-t.x,b.y-t.y))[0];
+ const fighting=target&&Math.hypot(target.x-t.x,target.y-t.y)<600;
+ const goal=fighting?target:{x:player.x+(i-1)*80,y:player.y-75};
+ const distance=Math.hypot(goal.x-t.x,goal.y-t.y),direction=Math.atan2(goal.y-t.y,goal.x-t.x);
+ t.turret=turn(t.turret,direction,2.2*dt);
+ if(distance>(fighting?210:65)){t.angle=turn(t.angle,direction,1.7*dt);const before=t.x+t.y;move(t,100,dt);if(Math.abs(t.x+t.y-before)<.01)t.angle+=2.8*dt}
+ if(fighting&&Math.abs(normalize(t.turret-direction))<.12&&lineClear(t,target))fire(t);
+}
+for(const t of enemies){t.cd=Math.max(0,t.cd-dt);const d=Math.hypot(player.x-t.x,player.y-t.y),target=Math.atan2(player.y-t.y,player.x-t.x);t.turret=turn(t.turret,target,1.1*dt);const desired=d>260?target:target+Math.PI/2;t.angle=turn(t.angle,desired,1.15*dt);const before=t.x+t.y;move(t,d>190?65:35,dt);if(Math.abs(t.x+t.y-before)<.01)t.angle+=1.8*dt;if(d<650&&Math.abs(normalize(t.turret-target))<.12&&lineClear(t,player))fire(t)}
+for(const s of shells){const steps=3;for(let i=0;i<steps&&s.life>0;i++){s.x+=s.vx*dt/steps;s.y+=s.vy*dt/steps;s.life-=dt/steps;if(blocked(s.x,s.y,2)){s.life=0;burst(s.x,s.y,'#b8ad89',8);break}for(const t of s.enemy?[player,...allies]:enemies){if(t.hp<=0||Math.hypot(t.x-s.x,t.y-s.y)>t.r)continue;const incoming=Math.atan2(-s.vy,-s.vx),angle=Math.abs(normalize(incoming-t.angle)),damage=angle<.8?18:angle>2.3?55:35;t.hp-=damage;s.life=0;burst(s.x,s.y,'#ffd477',16);if(t.hp<=0){burst(t.x,t.y,'#ff9456',30);wrecks.push({x:t.x,y:t.y,angle:t.angle});if(t.enemy)kills++;else if(t.ally)$('status').textContent=t.name+' was knocked out.'}break}}}
+enemies=enemies.filter(t=>t.hp>0);shells=shells.filter(s=>s.life>0);for(const p of sparks){p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt}sparks=sparks.filter(p=>p.life>0);
+if(player.hp<=0){end(false);return}if(enemies.length===0){if(wave<3){transition+=dt;if(transition>3){wave++;transition=0;spawn()}}else if(capture>=100)end(true);else $('status').textContent='Enemy armor cleared. Move into the center circle to finish capturing.'}
+}
+function drawTank(t){ctx.save();ctx.translate(t.x,t.y);ctx.rotate(t.angle);ctx.fillStyle='#121b17';ctx.fillRect(-25,-25,51,12);ctx.fillRect(-25,13,51,12);ctx.strokeStyle='#65705b';ctx.lineWidth=2;for(let x=-22;x<25;x+=7){ctx.beginPath();ctx.moveTo(x,-24);ctx.lineTo(x,-14);ctx.moveTo(x,14);ctx.lineTo(x,24);ctx.stroke()}ctx.fillStyle=t.enemy?'#8f6655':t.ally?'#638e94':'#899b67';ctx.fillRect(-23,-15,47,30);ctx.fillStyle=t.enemy?'#a98268':'#a7b37a';ctx.fillRect(5,-12,16,24);ctx.fillStyle='#394334';ctx.fillRect(-18,-10,14,20);ctx.restore();ctx.save();ctx.translate(t.x,t.y);ctx.rotate(t.turret);ctx.fillStyle=t.enemy?'#b18a69':t.ally?'#87cbd1':'#bbc38c';ctx.fillRect(0,-4,39,8);ctx.fillStyle=t.enemy?'#76584b':'#7b8d5c';ctx.beginPath();ctx.ellipse(-1,0,16,13,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#3b4232';ctx.beginPath();ctx.arc(-4,-2,6,0,Math.PI*2);ctx.fill();ctx.restore();ctx.fillStyle='#19201a';ctx.fillRect(t.x-24,t.y-38,48,5);ctx.fillStyle=t.enemy?'#eaa07b':'#b6df83';ctx.fillRect(t.x-24,t.y-38,48*Math.max(0,t.hp/t.max),5);if(t.ally){ctx.fillStyle='#c1f3f5';ctx.font='bold 10px monospace';ctx.textAlign='center';ctx.fillText(t.name,t.x,t.y-46);ctx.textAlign='left'}}
+// Project solid tank parts from world space so hull and turret turn independently.
+function drawAlly3D(t,view,px,py,projection,horizon,depth){
+ const faces=[],cos=Math.cos(view),sin=Math.sin(view);
+ function box(cx,cy,length,width,base,height,angle,colors){
+  const ca=Math.cos(angle),sa=Math.sin(angle);
+  const vertices=[];
+  for(const z of [base,base+height])for(const [x,y] of [[-length/2,-width/2],[length/2,-width/2],[length/2,width/2],[-length/2,width/2]]){
+   const dx=cx+x*ca-y*sa-px,dy=cy+x*sa+y*ca-py;
+   vertices.push({side:-dx*sin+dy*cos,z:dx*cos+dy*sin,height:z});
+  }
+  for(const [indices,color] of [[[0,1,5,4],colors[0]],[[1,2,6,5],colors[1]],[[2,3,7,6],colors[2]],[[3,0,4,7],colors[1]],[[4,5,6,7],colors[3]]]){
+   let points=indices.map(i=>vertices[i]),clipped=[];
+   for(let i=0;i<points.length;i++){
+    const a=points[i],b=points[(i+1)%points.length];
+    if(a.z>=8)clipped.push(a);
+    if((a.z>=8)!==(b.z>=8)){const k=(8-a.z)/(b.z-a.z);clipped.push({side:a.side+(b.side-a.side)*k,z:8,height:a.height+(b.height-a.height)*k})}
+   }
+   if(clipped.length>=3)faces.push({points:clipped,color,distance:points.reduce((sum,p)=>sum+p.z,0)/points.length});
+  }
+ }
+ function part(forward,side,length,width,base,height,angle,colors){box(t.x+Math.cos(angle)*forward-Math.sin(angle)*side,t.y+Math.sin(angle)*forward+Math.cos(angle)*side,length,width,base,height,angle,colors)}
+ const track=['#202a29','#303b39','#182220','#46514b'],armor=['#527d83','#3e626b','#456e75','#87b3b5'];
+ for(const side of [-21,21]){
+  part(0,side,60,12,0,16,t.angle,track);
+  for(let x=-24;x<=24;x+=8)part(x,side,2,13,15,2,t.angle,['#53615a','#394940','#35463e','#738279']);
+ }
+ part(0,0,54,34,9,16,t.angle,armor);
+ part(16,0,17,32,25,4,t.angle,['#689299','#557b82','#557b82','#a2c4c3']);
+ part(-16,0,16,26,25,2,t.angle,track);
+ part(-2,0,27,25,26,14,t.turret,armor);
+ part(-6,-3,10,10,40,3,t.turret,track);
+ part(29,0,44,5,32,5,t.turret,['#729a9e','#4d747a','#4d747a','#b2d1cf']);
+ part(52,0,7,8,31,7,t.turret,track);
+ // A bright identification stripe remains visible on the turret roof.
+ part(0,0,4,24,40,1,t.turret,['#bdecee','#8abec2','#8abec2','#d3f6f3']);
+ faces.sort((a,b)=>b.distance-a.distance);
+ ctx.save();ctx.beginPath();
+ for(let x=0;x<canvas.width;x+=3)if(t.z<depth[x]+60)ctx.rect(x,0,3,canvas.height);
+ ctx.clip();
+ for(const face of faces){ctx.beginPath();face.points.forEach((p,i)=>{const x=canvas.width/2+p.side*projection/p.z,y=horizon+(23-p.height)*projection/p.z;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)});ctx.closePath();ctx.fillStyle=face.color;ctx.fill();ctx.strokeStyle='#182e3244';ctx.lineWidth=.6;ctx.stroke()}
+ ctx.restore();
+}
+function draw(){
+ const vw=canvas.width,vh=canvas.height,horizon=vh*.43,projection=vw*.78;
+ const view=player?.turret??-Math.PI/2,px=player?.x??W/2,py=player?.y??H-90;
+ const sky=ctx.createLinearGradient(0,0,0,horizon);sky.addColorStop(0,'#8eacb2');sky.addColorStop(1,'#d3d5bd');ctx.fillStyle=sky;ctx.fillRect(0,0,vw,horizon);
+ const ground=ctx.createLinearGradient(0,horizon,0,vh);ground.addColorStop(0,'#788064');ground.addColorStop(1,'#384431');ctx.fillStyle=ground;ctx.fillRect(0,horizon,vw,vh-horizon);
+ const depth=new Float64Array(vw);
+ function rayBox(ox,oy,dx,dy,b){let near=0,far=3000;for(const [o,d,lo,hi] of [[ox,dx,b.x,b.x+b.w],[oy,dy,b.y,b.y+b.h]]){if(Math.abs(d)<1e-8){if(o<lo||o>hi)return null;continue}let a=(lo-o)/d,c=(hi-o)/d;if(a>c)[a,c]=[c,a];near=Math.max(near,a);far=Math.min(far,c);if(near>far)return null}return near>1?near:null}
+ for(let x=0;x<vw;x+=3){const offset=Math.atan((x-vw/2)/projection),angle=view+offset,dx=Math.cos(angle),dy=Math.sin(angle);let nearest=2200,building=null;
+ for(const b of cover){const d=rayBox(px,py,dx,dy,b);if(d!==null&&d<nearest){nearest=d;building=b}}
+ const distance=Math.max(12,nearest*Math.cos(offset));for(let i=x;i<Math.min(x+3,vw);i++)depth[i]=distance;
+ if(building){const bottom=horizon+projection*23/distance,top=horizon-projection*78/distance,impactX=px+dx*nearest,impactY=py+dy*nearest,edge=Math.min(Math.abs(impactX-building.x),Math.abs(impactX-building.x-building.w)),shade=edge<1?'#77796a':'#92917b';ctx.fillStyle=shade;ctx.fillRect(x,top,3,bottom-top);ctx.fillStyle='#484e40';ctx.fillRect(x,top,3,Math.max(2,(bottom-top)*.04));const windowBand=(Math.floor(impactX/22)+Math.floor(impactY/22))%3===0;if(windowBand){ctx.fillStyle='#434c45';ctx.fillRect(x,top+(bottom-top)*.36,3,(bottom-top)*.2)}}
+ }
+ function project(x,y){const dx=x-px,dy=y-py;return{z:dx*Math.cos(view)+dy*Math.sin(view),side:-dx*Math.sin(view)+dy*Math.cos(view)}}
+ const targets=[...enemies,...allies.filter(t=>t.hp>0)].map(t=>({...t,...project(t.x,t.y)})).filter(t=>t.z>18).sort((a,b)=>b.z-a.z);
+ for(const t of targets){const sx=vw/2+t.side*projection/t.z,scale=projection/t.z,bottom=horizon+23*scale;if(sx+80*scale<0||sx-80*scale>vw)continue;
+ if(t.ally){drawAlly3D(t,view,px,py,projection,horizon,depth)}else{
+ ctx.save();ctx.beginPath();for(let x=Math.max(0,Math.floor(sx-36*scale));x<Math.min(vw,sx+36*scale);x+=3)if(t.z<depth[x]+18)ctx.rect(x,0,3,vh);ctx.clip();ctx.translate(sx,bottom);ctx.scale(scale,scale);
+ ctx.fillStyle='#20281f';ctx.fillRect(-31,-23,15,23);ctx.fillRect(16,-23,15,23);ctx.fillStyle=t.ally?'#678d91':'#8b7560';ctx.beginPath();ctx.moveTo(-28,-25);ctx.lineTo(-18,-38);ctx.lineTo(18,-38);ctx.lineTo(28,-25);ctx.lineTo(26,-8);ctx.lineTo(-26,-8);ctx.closePath();ctx.fill();ctx.fillStyle=t.ally?'#9bc5c6':'#a7977b';ctx.fillRect(-15,-47,30,16);ctx.fillStyle='#343e32';ctx.fillRect(-4,-40,8,28);ctx.fillStyle='#d6d6b3';ctx.fillRect(-22,-20,5,4);ctx.fillRect(17,-20,5,4);ctx.restore();}
+ if(t.z<850){ctx.textAlign='center';ctx.font='bold 11px monospace';ctx.fillStyle=t.ally?'#b4edf1':'#ffd0a4';ctx.fillText((t.ally?t.name:'ENEMY')+' · '+Math.round(t.z)+' m',sx,bottom-53*scale-8);ctx.textAlign='left'}
+ }
+ const objective=project(W>1500?1200:560,W>1500?800:325);if(objective.z>10){const x=vw/2+objective.side*projection/objective.z;if(x>90&&x<vw-90){ctx.fillStyle='#f3d788';ctx.font='bold 16px monospace';ctx.textAlign='center';ctx.fillText('◇ A · '+Math.round(objective.z)+' m',x,horizon-65);ctx.textAlign='left'}}
+ // Steel viewport surround and interior control console.
+ ctx.fillStyle='#17201d';ctx.fillRect(0,0,vw,40);ctx.fillRect(0,0,65,vh);ctx.fillRect(vw-65,0,65,vh);ctx.fillRect(0,vh-130,vw,130);ctx.fillStyle='#303b32';ctx.fillRect(65,40,vw-130,9);ctx.fillRect(65,vh-139,vw-130,9);
+ for(let x=22;x<vw;x+=90){ctx.fillStyle='#5c6556';ctx.beginPath();ctx.arc(x,22,4,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(x,vh-24,4,0,Math.PI*2);ctx.fill()}
+ const ready=player&&player.cd<=0,color=ready?'#bfff9b':'#ffc173';ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(vw/2,horizon,19,0,Math.PI*2);ctx.moveTo(vw/2-65,horizon);ctx.lineTo(vw/2-9,horizon);ctx.moveTo(vw/2+9,horizon);ctx.lineTo(vw/2+65,horizon);ctx.moveTo(vw/2,horizon-40);ctx.lineTo(vw/2,horizon-10);ctx.moveTo(vw/2,horizon+10);ctx.lineTo(vw/2,horizon+60);ctx.stroke();ctx.fillStyle=color;ctx.fillRect(vw/2-2,horizon-2,4,4);
+ ctx.font='12px monospace';ctx.fillText(ready?'GUN READY':'RELOADING '+(player?.cd??0).toFixed(1)+'s',vw/2+33,horizon+34);ctx.fillStyle='#bdc6ad';ctx.fillText('GUNNER OPTICS / FIRST PERSON',90,25);
+ ctx.fillStyle='#0c1510';ctx.fillRect(90,vh-108,230,70);ctx.fillRect(vw-320,vh-108,230,70);ctx.fillStyle='#b9d18f';ctx.font='13px monospace';ctx.fillText('ARMOR  '+Math.max(0,Math.ceil(player?.hp??100))+'%',107,vh-81);ctx.fillText('CAPTURE  '+Math.floor(capture)+'%',107,vh-57);ctx.fillText('WAVE '+wave+'   KILLS '+kills,vw-302,vh-81);ctx.fillText('HULL '+Math.round(((player?.angle??0)*180/Math.PI+360)%360)+'°',vw-302,vh-57);ctx.fillStyle='#d8c99f';ctx.textAlign='center';ctx.fillText('STEEL FRONT',vw/2,vh-78);ctx.fillStyle='#8d9a82';ctx.fillText('W/S DRIVE · A/D HULL · Q/E TURRET',vw/2,vh-53);ctx.textAlign='left';
+ $('hp').textContent=Math.max(0,Math.ceil(player?.hp??100));$('kills').textContent=kills;$('wave').textContent=wave;$('reload').textContent=ready?'READY':(player?.cd??0).toFixed(1)+' s';$('capture').textContent=Math.floor(capture)+'%';if(paused){ctx.fillStyle='#0e150eaa';ctx.fillRect(0,0,vw,vh);ctx.fillStyle='#eeeade';ctx.font='bold 40px system-ui';ctx.textAlign='center';ctx.fillText('PAUSED',vw/2,vh/2);ctx.textAlign='left'}
+}
+let lastAimX=null;
+function aim(e){if(lastAimX!==null&&playing&&!paused&&player){player.turret+=Math.max(-80,Math.min(80,e.clientX-lastAimX))*.006;mouseAim=false}lastAimX=e.clientX}
+canvas.addEventListener('pointerleave',()=>{lastAimX=null});
+canvas.addEventListener('pointermove',aim);canvas.addEventListener('pointerdown',e=>{if(!playing||paused)return;aim(e);firing=true;canvas.setPointerCapture(e.pointerId)});for(const event of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(event,()=>firing=false);
+document.addEventListener('keydown',e=>{if(e.target.closest('button'))return;const k=e.key.toLowerCase();if(['w','a','s','d','q','e',' ','arrowup','arrowdown','arrowleft','arrowright','p'].includes(k))e.preventDefault();if(k==='p'&&!e.repeat)pause();else keys.add(k)});document.addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));window.addEventListener('blur',()=>{keys.clear();firing=false;if(playing&&!paused)pause()});document.querySelectorAll('[data-key]').forEach(b=>{b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture(e.pointerId);keys.add(b.dataset.key)});for(const event of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(event,()=>keys.delete(b.dataset.key))});$('play').onclick=start;$('pause').onclick=pause;
+function frame(now){const dt=Math.min(.035,(now-last)/1000);last=now;if(playing&&!paused)update(dt);draw();requestAnimationFrame(frame)}requestAnimationFrame(frame);
+</script></body></html>

@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Deep Pocket — Mining Game</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#101821;color:#e9f0ed;font-family:system-ui,sans-serif}main{max-width:1020px;margin:auto;padding:28px}header{display:flex;justify-content:space-between;align-items:center;gap:20px}h1{font-size:32px;letter-spacing:-1px;margin:0}h1 span{color:#edb85a}.subtitle{color:#91a6b4;font-size:14px}#stats{display:flex;gap:20px;flex-wrap:wrap;margin:24px 0;background:#1b2935;padding:18px;border-radius:12px}#stats b{color:#edb85a}canvas{width:100%;display:block;background:#18232d;border-radius:12px;border:1px solid #344652;touch-action:none}.bar{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0}button{border:1px solid #425662;border-radius:8px;background:#263b48;color:#edf4ef;padding:12px 16px;font:inherit;cursor:pointer}button:hover{background:#375363}button:disabled{opacity:.45;cursor:default}.primary{background:#d7a346;color:#17212a;border-color:#d7a346}#message{min-height:26px;color:#edb85a}.help{color:#9db0bc;line-height:1.7;font-size:14px}.controls{display:flex;justify-content:center;gap:8px}footer{margin-top:20px;color:#6f8796;font-size:12px}@media(max-width:600px){main{padding:16px}header{align-items:start;flex-direction:column}#stats{gap:12px;font-size:14px}button{padding:10px}}
+</style></head><body><main><header><div><h1>DEEP <span>POCKET</span></h1><div class="subtitle">Your first-person expedition underground.</div></div><div class="subtitle">DIG · DISCOVER · UPGRADE</div></header><section id="stats" aria-live="polite"></section><canvas id="game" width="960" height="600" aria-label="First-person mine. WASD to move, left and right arrows to turn, click to mine."></canvas><div class="bar"><button id="sell" class="primary">Sell cargo</button><button id="pick">Upgrade pickaxe</button><button id="bag">Upgrade backpack</button><button id="home">Return to surface</button><button id="reset">New mine</button></div><div id="message" role="status"></div><div class="controls"><button data-dir="0,-1" aria-label="Move up">↑</button><button data-dir="-1,0" aria-label="Move left">←</button><button data-dir="0,1" aria-label="Move down">↓</button><button data-dir="1,0" aria-label="Move right">→</button></div><p class="help"><strong>WASD</strong> to move. <strong>Left / right arrows</strong> or drag the view to turn. Aim the crosshair at a nearby block and <strong>click or press Space</strong> to mine. Walking into a block breaks it immediately. <strong>R</strong> returns to the surface to sell. Find the ancient relic at 59 m!</p><footer>Ore values: coal $5 · copper $12 · iron $18 · silver $28 · gold $35 · emerald $65 · ruby $85 · diamond $100 · sapphire $120</footer></main>
+<script>
+'use strict';
+const canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d');
+const W=24,H=62,S=40,types={dirt:{color:'#785842',hp:1},stone:{color:'#52616a',hp:2},coal:{color:'#303a42',hp:2,value:5},copper:{color:'#b87750',hp:3,value:12},gold:{color:'#d7ac49',hp:4,value:35},diamond:{color:'#66d8d4',hp:6,value:100},iron:{color:'#89959c',hp:3,value:18,gem:'#dde5e9'},silver:{color:'#9caebf',hp:4,value:28,gem:'#f1f7ff'},emerald:{color:'#267c59',hp:5,value:65,gem:'#69f4aa'},ruby:{color:'#8d364c',hp:6,value:85,gem:'#ff7596'},sapphire:{color:'#355b9c',hp:7,value:120,gem:'#8ab8ff'},relic:{color:'#c99bef',hp:10}};
+let grid,player,money,level,capacity,cargo,won, camera=0,particles=[],blockTargets=[],heading=Math.PI/2,aimedBlock=null;
+function message(t){document.querySelector('#message').textContent=t}
+function init(){money=0;level=1;capacity=15;cargo=[];won=false;heading=Math.PI/2;player={x:12,y:0};grid=Array.from({length:H},(_,y)=>Array.from({length:W},()=>{if(y===0)return null;let r=Math.random(),type=y>=45&&r<.025?'sapphire':y>=35&&r<.055?'ruby':y>=25&&r<.09?'diamond':y>=20&&r<.135?'emerald':y>=13&&r<.20?'gold':y>=10&&r<.26?'silver':y>=5&&r<.34?'iron':r<.44?'copper':r<.56?'coal':r<.78?'stone':'dirt';return{type,hp:types[type].hp}}));grid[59][12]={type:'relic',hp:10};message('Your expedition begins. Dig down to discover valuable ore.');update();draw()}
+function update(){document.querySelector('#stats').innerHTML=`<span>Wallet <b>$${money}</b></span><span>Cargo <b>${cargo.length}/${capacity}</b></span><span>Value <b>$${cargo.reduce((s,t)=>s+types[t].value,0)}</b></span><span>Depth <b>${player.y} m</b></span><span>Pickaxe <b>Lv. ${level}</b></span>`;document.querySelector('#pick').textContent=`Pickaxe +1 · $${level*60}`;document.querySelector('#bag').textContent=`Backpack +10 · $${capacity*4}`;document.querySelector('#pick').disabled=money<level*60;document.querySelector('#bag').disabled=money<capacity*4;document.querySelector('#sell').disabled=player.y!==0||cargo.length===0}
+function move(dx,dy){let x=player.x+dx,y=player.y+dy;if(x<0||x>=W||y<0||y>=H)return;let b=grid[y][x];if(b){let t=types[b.type];if(t.value&&cargo.length>=capacity){message('Backpack full! Press R to return and sell your cargo.');return}b.hp=0;if(b.hp<=0){grid[y][x]=null;if(t.value){cargo.push(b.type);message(`Found ${b.type}! +$${t.value} cargo value.`)}if(b.type==='relic'){won=true;money+=1000;message('Relic recovered! You won and earned $1,000. Keep mining to grow your fortune.')}player={x,y}}else message(`${b.type}: ${b.hp} durability remaining.`)}else player={x,y};update();draw()}
+// Generate each rock material once; the raycaster samples these cached textures.
+const rockTextures={};
+function rockTexture(name){
+ if(rockTextures[name])return rockTextures[name];
+ const tile=document.createElement('canvas');tile.width=tile.height=128;
+ const paint=tile.getContext('2d'),data=paint.createImageData(128,128),t=types[name]||{color:'#38414b'};
+ let seed=Array.from(name).reduce((a,c)=>a*31+c.charCodeAt(0),7)>>>0;
+ function random(){seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296}
+ const base=name==='dirt'?[111,78,49]:name==='relic'?[68,56,79]:[83,87,88];
+ for(let y=0;y<128;y++)for(let x=0;x<128;x++){
+ const grain=(random()-.5)*38,layer=Math.sin(y*.19+Math.sin(x*.055)*2)*7+Math.sin(x*.1+y*.04)*5;
+ const edge=Math.min(x,y,127-x,127-y),shade=edge<2?-27:edge<4?-9:0;
+ const i=(y*128+x)*4;for(let c=0;c<3;c++)data.data[i+c]=Math.max(0,Math.min(255,base[c]+grain+layer+shade));data.data[i+3]=255;
+ }paint.putImageData(data,0,0);
+ // Thin branching fractures follow irregular paths through the rock.
+ for(let n=0;n<7;n++){
+ let x=random()*128,y=random()*128;paint.beginPath();paint.moveTo(x,y);
+ for(let k=0;k<7;k++){x+=(random()-.45)*19;y+=random()*12;paint.lineTo(x,y)}
+ paint.strokeStyle='rgba(9,14,17,.55)';paint.lineWidth=.6+random()*1.3;paint.stroke();
+ paint.strokeStyle='rgba(225,220,204,.12)';paint.lineWidth=.45;paint.stroke();
+ }
+ if(t.value||name==='relic'){
+ const ore=t.gem||(name==='gold'?'#d4ab46':name==='diamond'?'#91d3dd':name==='coal'?'#172026':name==='relic'?'#ba8ddb':'#bb7954');
+ for(let n=0;n<5;n++){
+ const cx=12+random()*104,cy=12+random()*104;
+ for(let k=0;k<13;k++){
+ const x=cx+(random()-.5)*28,y=cy+(random()-.5)*32,r=1.5+random()*5;
+ paint.beginPath();paint.moveTo(x-r,y);paint.lineTo(x-r*.25,y-r*.7);paint.lineTo(x+r*.8,y-r*.3);paint.lineTo(x+r,y+r*.6);paint.lineTo(x-r*.5,y+r);paint.closePath();
+ paint.fillStyle=ore;paint.fill();paint.strokeStyle='rgba(0,0,0,.5)';paint.lineWidth=.8;paint.stroke();
+ paint.beginPath();paint.moveTo(x-r*.25,y-r*.7);paint.lineTo(x+r*.8,y-r*.3);paint.strokeStyle=name==='coal'?'rgba(170,185,197,.25)':'rgba(255,249,216,.65)';paint.stroke();
+ }
+ }
+ }
+ rockTextures[name]=tile;return tile;
+}
+const damageTextures={};
+function damageTexture(stage){
+ if(damageTextures[stage])return damageTextures[stage];
+ const tile=document.createElement('canvas');tile.width=tile.height=128;
+ const paint=tile.getContext('2d');
+ const paths=[[[63,62],[49,46],[45,29],[31,16],[25,0]],[[63,62],[79,49],[88,30],[108,22],[128,17]],[[63,62],[70,81],[61,100],[69,119],[74,128]],[[63,62],[41,70],[29,89],[11,96],[0,112]],[[49,46],[27,43],[14,29],[0,31]],[[79,49],[97,61],[112,58],[128,68]],[[70,81],[93,90],[105,110],[126,121]],[[41,70],[31,59],[13,63],[0,55]]];
+ for(let i=0;i<Math.min(paths.length,stage*2);i++){
+ const points=paths[i];
+ function trace(offset){paint.beginPath();points.forEach((p,n)=>n?paint.lineTo(p[0]+offset,p[1]+offset):paint.moveTo(p[0]+offset,p[1]+offset));paint.stroke()}
+ paint.lineJoin='round';paint.lineCap='round';paint.strokeStyle='rgba(225,219,204,.6)';paint.lineWidth=1+stage*.45;trace(1.4);
+ paint.strokeStyle='rgba(9,10,12,.92)';paint.lineWidth=1+stage*.65;trace(0);
+ }
+ damageTextures[stage]=tile;return tile;
+}
+function castRay(angle){
+ const vx=Math.cos(angle),vy=Math.sin(angle),px=player.x+.5,py=player.y+.5;
+ let x=player.x,y=player.y,side=0,distance=0;
+ const dx=Math.abs(1/vx),dy=Math.abs(1/vy),sx=vx<0?-1:1,sy=vy<0?-1:1;
+ let tx=(vx<0?px-x:x+1-px)*dx,ty=(vy<0?py-y:y+1-py)*dy;
+ for(let i=0;i<150;i++){
+ if(tx<ty){distance=tx;tx+=dx;x+=sx;side=0}else{distance=ty;ty+=dy;y+=sy;side=1}
+ if(x<0||x>=W||y<0||y>=H)return {distance,side,boundary:true,x,y};
+ if(grid[y][x])return {distance,side,x,y,block:grid[y][x]};
+ }return {distance:60,boundary:true,side:0,x,y};
+}
+function draw(){
+ const width=960,height=600,horizon=285;
+ let ceiling=ctx.createLinearGradient(0,0,0,horizon);ceiling.addColorStop(0,'#080e18');ceiling.addColorStop(1,'#34404c');ctx.fillStyle=ceiling;ctx.fillRect(0,0,width,horizon);
+ let floor=ctx.createLinearGradient(0,horizon,0,height);floor.addColorStop(0,'#151b22');floor.addColorStop(1,'#555047');ctx.fillStyle=floor;ctx.fillRect(0,horizon,width,height-horizon);
+ const fov=Math.PI/3,projection=width/(2*Math.tan(fov/2));
+ for(let column=0;column<width;column+=3){
+ const offset=Math.atan((column-width/2)/projection),hit=castRay(heading+offset),dist=Math.max(.12,hit.distance*Math.cos(offset));
+ const wallHeight=Math.min(2400,projection/dist),top=horizon-wallHeight/2;
+ const t=hit.block?types[hit.block.type]:{color:'#293442'};
+ const impact=hit.side===0?player.y+.5+Math.sin(heading+offset)*hit.distance:player.x+.5+Math.cos(heading+offset)*hit.distance;
+ const u=impact-Math.floor(impact),texture=rockTexture(hit.block?hit.block.type:'boundary');
+ const textureX=Math.min(127,Math.floor(u*128));
+ ctx.drawImage(texture,textureX,0,1,128,column,top,3,wallHeight);
+ // A warm headlamp falls off away from the crosshair and into the distance.
+ const lamp=Math.max(0,1-Math.abs(column-width/2)/(width*.65));
+ ctx.fillStyle='rgba(255,204,135,'+(lamp*.09/(1+dist*.22))+')';ctx.fillRect(column,top,3,wallHeight);
+ if(hit.block&&hit.block.hp<types[hit.block.type].hp){
+ const damage=1-hit.block.hp/types[hit.block.type].hp,stage=Math.max(1,Math.min(4,Math.ceil(damage*4)));ctx.drawImage(damageTexture(stage),textureX,0,1,128,column,top,3,wallHeight);
+ }
+ ctx.fillStyle='rgba(0,0,0,'+Math.min(.88,dist/22+(hit.side?.13:0))+')';ctx.fillRect(column,top,3,wallHeight);
+ if(u<.012||u>.988){ctx.fillStyle='rgba(0,0,0,.28)';ctx.fillRect(column,top,3,wallHeight)}
+ ctx.fillStyle='rgba(0,0,0,.25)';ctx.fillRect(column,top,3,Math.max(1,wallHeight*.012));ctx.fillRect(column,top+wallHeight-3,3,3);
+ }
+ aimedBlock=castRay(heading);
+ ctx.strokeStyle=aimedBlock.block&&aimedBlock.distance<4?'#ffd376':'#ffffff';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(470,285);ctx.lineTo(490,285);ctx.moveTo(480,275);ctx.lineTo(480,295);ctx.stroke();
+ ctx.fillStyle='#1b2935';ctx.fillRect(660,470,24,160);ctx.save();ctx.translate(670,475);ctx.rotate(-.45);ctx.fillStyle='#a1b2bd';ctx.fillRect(-65,-10,130,20);ctx.fillStyle='#e7bd69';ctx.fillRect(-5,-10,15,20);ctx.restore();
+ ctx.fillStyle='#eff4f5';ctx.font='16px system-ui';ctx.fillText('DEPTH '+player.y+' m',24,34);
+ if(aimedBlock.block&&aimedBlock.distance<4){ctx.textAlign='center';ctx.fillText(aimedBlock.block.type.toUpperCase()+' · '+aimedBlock.block.hp+' HP',480,335);ctx.textAlign='left'}
+ ctx.font='13px system-ui';ctx.fillText('WASD move · ← → turn · drag to look · click to mine',24,575);
+}
+function mineAhead(){
+ const hit=castRay(heading);if(!hit.block||hit.distance>=4){message('Move closer to a block to mine it.');return}
+ const b=hit.block,t=types[b.type];if(t.value&&cargo.length>=capacity){message('Backpack full! Press R to return and sell.');return}
+ b.hp-=level;
+ if(b.hp<=0){grid[hit.y][hit.x]=null;if(t.value){cargo.push(b.type);message('Collected '+b.type+' worth $'+t.value+'.')}else message('Block mined.');if(b.type==='relic'){won=true;money+=1000;message('Relic recovered! You won $1,000!')}}else message(b.type+': '+b.hp+' durability remaining.');
+ update();draw();
+}
+function control(action){
+ if(action==='left'){heading-=.16;draw();return}if(action==='right'){heading+=.16;draw();return}
+ const angle=heading+(action==='strafeLeft'?-Math.PI/2:action==='strafeRight'?Math.PI/2:action==='back'?Math.PI:0);
+ const vx=Math.cos(angle),vy=Math.sin(angle);if(Math.abs(vx)>Math.abs(vy))move(Math.sign(vx),0);else move(0,Math.sign(vy));
+}
+canvas.style.cursor='crosshair';
+let pointerStart=null,dragged=false;
+canvas.addEventListener('pointerdown',e=>{pointerStart={x:e.clientX,last:e.clientX};dragged=false;canvas.setPointerCapture?.(e.pointerId)});
+canvas.addEventListener('pointermove',e=>{if(!pointerStart)return;let delta=e.clientX-pointerStart.last;if(Math.abs(e.clientX-pointerStart.x)>4)dragged=true;if(dragged){heading+=delta*.008;draw()}pointerStart.last=e.clientX});
+canvas.addEventListener('pointerup',()=>{pointerStart=null});canvas.addEventListener('pointercancel',()=>{pointerStart=null;dragged=true});
+canvas.addEventListener('click',()=>{if(!dragged)mineAhead();dragged=false});
+document.addEventListener('keydown',e=>{const key=e.key.toLowerCase(),actions={w:'forward',arrowup:'forward',s:'back',arrowdown:'back',a:'strafeLeft',d:'strafeRight',arrowleft:'left',arrowright:'right'};if(actions[key]){e.preventDefault();control(actions[key])}if(key==='r')home();if(key===' '){e.preventDefault();mineAhead()}});
+function home(){player={x:12,y:0};message('Back at the surface. Sell your haul and prepare for the next trip.');update();draw()}
+document.querySelector('#home').onclick=home;document.querySelector('#sell').onclick=()=>{if(player.y!==0)return;let value=cargo.reduce((s,t)=>s+types[t].value,0);money+=value;cargo=[];message(`Cargo sold for $${value}.`);update()};document.querySelector('#pick').onclick=()=>{let cost=level*60;if(money<cost)return;money-=cost;level++;message('Pickaxe upgraded. Mine tough blocks faster!');update()};document.querySelector('#bag').onclick=()=>{let cost=capacity*4;if(money<cost)return;money-=cost;capacity+=10;message('Backpack upgraded. Carry more on each expedition!');update()};document.querySelector('#reset').onclick=()=>{if(confirm('Start a new mine? This resets your progress.'))init()};document.querySelectorAll('[data-dir]').forEach(b=>b.onclick=()=>control({'0,-1':'forward','0,1':'back','-1,0':'left','1,0':'right'}[b.dataset.dir]));init();
+</script></body></html>

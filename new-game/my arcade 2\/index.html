@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orbit — Ball Battle</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100svh;display:grid;place-items:center;padding:24px;background:#090e20;color:#edf4ff;font-family:system-ui,sans-serif}main{width:min(100%,760px);text-align:center}.arena{position:relative;height:180px;max-width:400px;margin:0 auto 32px;overflow:hidden;border:1px solid #263453;border-radius:24px;background:repeating-linear-gradient(0deg,transparent 0 39px,#1a2943 39px 40px),repeating-linear-gradient(90deg,#10192e 0 39px,#1a2943 39px 40px)}.ball{position:absolute;left:5%;top:10%;width:42px;height:42px;border-radius:50%;background:radial-gradient(circle at 30% 28%,#e4fff8,#6ff4d0 38%,#29ba9a);box-shadow:0 0 28px #6ff4d077;animation:bounce 5s linear infinite}.bot{left:75%;top:60%;width:34px;height:34px;background:radial-gradient(circle at 30% 28%,#ffe4ed,#ff6b91 38%,#c23761);box-shadow:0 0 28px #ff6b9177;animation:bounce 7s linear infinite reverse}.tag{color:#6ff4d0;font-size:12px;font-weight:800;letter-spacing:3px}h1{margin:12px 0;font-size:clamp(64px,14vw,108px);line-height:1;letter-spacing:-4px}h1 span{color:#6ff4d0}h2{margin:16px 0;font-size:22px;letter-spacing:5px;text-transform:uppercase}p{max-width:470px;margin:20px auto 30px;color:#a8b7d2;line-height:1.7}.play{display:inline-block;padding:17px 58px;background:#6ff4d0;color:#08251f;border-radius:14px;font-size:18px;font-weight:800;text-decoration:none}.play:hover{background:#9cffe4}.play:focus-visible{outline:3px solid white;outline-offset:6px}.features{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:32px}.features span{padding:9px 14px;border:1px solid #263453;border-radius:30px;color:#95a4c4;font-size:12px}@keyframes bounce{0%,100%{left:5%;top:10%}25%{left:83%;top:55%}50%{left:45%;top:75%}75%{left:5%;top:35%}}@media(prefers-reduced-motion:reduce){.ball{animation:none}}
+
+@media(max-height:740px){body{padding:16px}.arena{height:110px;margin-bottom:18px}h1{font-size:clamp(48px,10vw,76px)}h2{font-size:18px;margin:10px 0}p{margin:12px auto 18px;font-size:14px}.features{margin-top:18px;gap:8px}.play{padding:12px 42px}}
+@media(max-height:480px){.arena{display:none}.features{margin-top:12px}h1{font-size:48px}h2{font-size:15px}p{line-height:1.4;margin:8px auto 14px}}
+</style>
+</head>
+<body>
+<main>
+<div class="arena" aria-hidden="true"><div class="ball"></div><div class="ball bot"></div></div>
+<div class="tag">BOUNCE INTO BATTLE</div>
+<h1>Orbit<span>.</span></h1>
+<h2>Ball Battle</h2>
+<p>Your ball bounces. The bots fight back. Open mystery boxes, roll upgrades, and survive stronger opponents with every level.</p>
+<a class="play" href="game.html">Play →</a>
+<div class="features"><span>Automatic battles</span><span>Mystery boxes</span><span>Ball types &amp; skins</span></div>
+</main>
+</body>
+</html>
