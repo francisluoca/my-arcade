@@ -7,10 +7,15 @@
 .arcade-home:hover{background:#ffffff18}.arcade-home:focus-visible{outline:3px solid #fff;outline-offset:4px}
 .tool-shop{margin:22px 0;padding:22px;background:#211c1b;border:1px solid #ffc77725;border-radius:12px}.tool-shop h2{margin:0 0 8px;font-size:20px}.tool-shop>p{color:var(--muted);font-size:12px;line-height:1.6}.tool-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.tool-card{padding:16px;border:1px solid #ffc77725;border-radius:9px;background:#171416}.tool-card.active{border-color:#ffc777;background:#ffc7770c}.tool-card h3{font-size:15px;color:var(--gold);margin:0 0 10px}.tool-card p{font-size:12px;line-height:1.6;color:var(--muted);min-height:58px}.tool-card button{width:100%}.controls{flex-wrap:wrap}@media(max-width:650px){.tool-grid{grid-template-columns:repeat(2,1fr)}}
 .redeem{margin:20px 0;padding:20px;border:1px solid #ffc77725;border-radius:12px;background:#211c1b}.redeem label{display:block;font-size:14px;font-weight:bold;margin-bottom:12px}.redeem-row{display:flex;gap:10px}.redeem input{flex:1;min-width:0;border:1px solid #ffc77740;border-radius:8px;padding:13px;background:#151214;color:#fff0da;font:14px monospace;text-transform:uppercase}.redeem input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}.redeem p{color:var(--muted);font-size:12px;line-height:1.6;margin-bottom:0}
+#game{aspect-ratio:8/5;height:auto;image-rendering:auto}
 </style></head><body><main><a class="arcade-home" href="index.html">← Home</a><header><div><div class="eyebrow">EXPLORATION / MINING</div><h1>DEEP <span>POCKET</span></h1><div class="subtitle">Chase the glimmer beneath the surface.</div></div><div class="expedition">✦ DIG · DISCOVER · UPGRADE</div></header><section id="stats" aria-live="polite"></section><canvas id="game" width="960" height="600" aria-label="First-person mine. WASD to move, left and right arrows to turn, click to mine."></canvas><div class="bar"><button id="sell" class="primary">Sell cargo</button><button id="pick">Upgrade pickaxe</button><button id="bag">Upgrade backpack</button><button id="home">Return to surface</button><button id="reset">New mine</button></div><div id="message" role="status"></div><form class="redeem" id="redeem-form"><label for="redeem-code">Redeem a code</label><div class="redeem-row"><input id="redeem-code" name="code" placeholder="Enter code" maxlength="40" autocomplete="off" autocapitalize="characters" spellcheck="false" required aria-describedby="redeem-result"><button type="submit" class="primary">Redeem</button></div><p id="redeem-result" role="status">Try ARCADE100 for $100. Each code can be used once per mine.</p></form><section class="tool-shop" aria-labelledby="shop-title"><h2 id="shop-title">Miner’s tool shop</h2><p>Buy once, switch any time. Every tool benefits from your power upgrades. New mine resets your purchases.</p><div id="tool-grid" class="tool-grid"></div></section><div class="controls"><button data-dir="0,-1" aria-label="Move up">↑</button><button data-dir="-1,0" aria-label="Move left">←</button><button data-dir="0,1" aria-label="Move down">↓</button><button data-dir="1,0" aria-label="Move right">→</button><button data-action="lookUp" aria-label="Look up">Look ↑</button><button data-action="lookDown" aria-label="Look down">Look ↓</button><button data-action="rise">Rise E</button><button data-action="descend">Descend Q</button></div><p class="help"><strong>WASD</strong> to move. <strong>Left / right arrows</strong> to turn. <strong>Drag in any direction</strong> or use <strong>I / K</strong> to look up / down. Mine the ceiling or floor, then use <strong>E / Q</strong> to move up / down through cleared space. Aim the crosshair at a nearby block and <strong>click or press Space</strong> to mine within <strong>1.8 m</strong>. Blocks stop your movement. Mine a path with your pickaxe; upgrades break tough ore faster. <strong>R</strong> returns to the surface to sell. Find the ancient relic at 59 m!</p><footer>Ore values: coal $5 · copper $12 · iron $18 · silver $28 · gold $35 · emerald $65 · ruby $85 · diamond $100 · sapphire $120</footer></main>
 <script>
 'use strict';
 const canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d');
+const mineLayer=document.createElement('canvas'),mineCtx=mineLayer.getContext('2d');
+let RENDER_STEP=4;mineLayer.width=960/RENDER_STEP;mineLayer.height=600/RENDER_STEP;
+let minePixels=mineCtx.createImageData(mineLayer.width,mineLayer.height),mineRenderKey='',mineRevision=0,lastMinePose='',poseChangedAt=0;
+function resizeMineCanvas(){const ratio=Math.min(window.devicePixelRatio||1,2),bounds=canvas.getBoundingClientRect(),width=Math.max(1,Math.round(bounds.width*ratio)),height=Math.round(width*600/960);if(canvas.width!==width||canvas.height!==height){canvas.width=width;canvas.height=height}ctx.setTransform(width/960,0,0,height/600,0,0);ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high'}
 const MINING_REACH=1.8;
 const W=24,H=62,S=40,types={dirt:{color:'#785842',hp:1},stone:{color:'#52616a',hp:2},coal:{color:'#303a42',hp:2,value:5},copper:{color:'#b87750',hp:3,value:12},gold:{color:'#d7ac49',hp:4,value:35},diamond:{color:'#66d8d4',hp:6,value:100},iron:{color:'#89959c',hp:3,value:18,gem:'#dde5e9'},silver:{color:'#9caebf',hp:4,value:28,gem:'#f1f7ff'},emerald:{color:'#267c59',hp:5,value:65,gem:'#69f4aa'},ruby:{color:'#8d364c',hp:6,value:85,gem:'#ff7596'},sapphire:{color:'#355b9c',hp:7,value:120,gem:'#8ab8ff'},relic:{color:'#c99bef',hp:10}};
 // Tougher rock rewards upgrading the pickaxe.
@@ -26,7 +31,7 @@ function chooseTool(id){const tool=tools[id];if(!tool)return;if(!ownedTools.has(
 let pitch=0,altitude=.5,verticalRock=new Map();
 let grid,player,money,level,capacity,cargo,won, camera=0,particles=[],blockTargets=[],heading=Math.PI/2,aimedBlock=null;
 function message(t){document.querySelector('#message').textContent=t}
-function init(){redeemedCodes.clear();document.querySelector('#redeem-result').textContent='Try ARCADE100 for $100. Each code can be used once per mine.';ownedTools=new Set(['pick']);activeTool='pick';pitch=0;altitude=.5;verticalRock.clear();rockShapes.clear();money=0;level=1;capacity=15;cargo=[];won=false;heading=Math.PI/2;player={x:12.5,y:.5};grid=Array.from({length:H},(_,y)=>Array.from({length:W},()=>{if(y<4)return null;let r=Math.random(),type=y>=45&&r<.025?'sapphire':y>=35&&r<.055?'ruby':y>=25&&r<.09?'diamond':y>=20&&r<.135?'emerald':y>=13&&r<.20?'gold':y>=10&&r<.26?'silver':y>=5&&r<.34?'iron':r<.44?'copper':r<.56?'coal':r<.78?'stone':'dirt';return{type,hp:types[type].hp}}));grid[59][12]={type:'relic',hp:types.relic.hp};for(let y=4;y<=5;y++)for(let x=10;x<=14;x++)grid[y][x]=null;message('A sunny day at base camp! Walk forward into the cave to meet your crew and start mining.');update();draw()}
+function init(){mineRevision++;redeemedCodes.clear();document.querySelector('#redeem-result').textContent='Try ARCADE100 for $100. Each code can be used once per mine.';ownedTools=new Set(['pick']);activeTool='pick';pitch=0;altitude=.5;verticalRock.clear();rockShapes.clear();money=0;level=1;capacity=15;cargo=[];won=false;heading=Math.PI/2;player={x:12.5,y:.5};grid=Array.from({length:H},(_,y)=>Array.from({length:W},()=>{if(y<4)return null;let r=Math.random(),type=y>=45&&r<.025?'sapphire':y>=35&&r<.055?'ruby':y>=25&&r<.09?'diamond':y>=20&&r<.135?'emerald':y>=13&&r<.20?'gold':y>=10&&r<.26?'silver':y>=5&&r<.34?'iron':r<.44?'copper':r<.56?'coal':r<.78?'stone':'dirt';return{type,hp:types[type].hp}}));grid[59][12]={type:'relic',hp:types.relic.hp};for(let y=4;y<=5;y++)for(let x=10;x<=14;x++)grid[y][x]=null;message('A sunny day at base camp! Walk forward into the cave to meet your crew and start mining.');update();draw()}
 function update(){renderTools();document.querySelector('#stats').innerHTML=`<span>Wallet <b>$${money}</b></span><span>Cargo <b>${cargo.length}/${capacity}</b></span><span>Value <b>$${cargo.reduce((s,t)=>s+types[t].value,0)}</b></span><span>Depth <b>${Math.floor(player.y)} m</b></span><span>${tools[activeTool].name} <b>Lv. ${level}</b></span>`;document.querySelector('#pick').textContent=`Tool power +1 · $${level*60}`;document.querySelector('#bag').textContent=`Backpack +10 · $${capacity*4}`;document.querySelector('#pick').disabled=money<level*60;document.querySelector('#bag').disabled=money<capacity*4;document.querySelector('#sell').disabled=(player.y>=4||Math.floor(altitude)!==0)||cargo.length===0}
 function move(dx,dy){
  function step(x,y){
@@ -183,6 +188,7 @@ function drawSunnySky(){
  polygon([[0,horizon+120],[0,horizon+10],[170,horizon-20],[340,horizon+25],[570,horizon-30],[800,horizon+18],[960,horizon-10],[960,horizon+120]],'#9ac878');
 }
 function draw(){
+ resizeMineCanvas();
  const width=960,height=600,horizon=285;
  let ceiling=ctx.createLinearGradient(0,0,0,horizon);ceiling.addColorStop(0,'#171218');ceiling.addColorStop(1,'#42332a');ctx.fillStyle=ceiling;ctx.fillRect(0,0,width,horizon);
  let floor=ctx.createLinearGradient(0,horizon,0,height);floor.addColorStop(0,'#241c1b');floor.addColorStop(1,'#69503a');ctx.fillStyle=floor;ctx.fillRect(0,horizon,width,height-horizon);
@@ -193,14 +199,20 @@ function draw(){
  // Real voxel faces let the same rock be viewed and mined from any angle.
  drawSunnySky();
  const cp=Math.cos(pitch),sp=Math.sin(pitch),ch=Math.cos(heading),sh=Math.sin(heading),projection=831;
- for(let y=0;y<600;y+=6)for(let x=0;x<960;x+=6){
- const u=(x+3-480)/projection,v=(285-y-3)/projection;
+ const pose=[player.x,player.y,altitude,heading,pitch,mineRevision].join(',');
+ if(pose!==lastMinePose){lastMinePose=pose;poseChangedAt=sceneTime}
+ const quality=sceneTime-poseChangedAt>.18?2:4;
+ if(quality!==RENDER_STEP){RENDER_STEP=quality;mineLayer.width=960/quality;mineLayer.height=600/quality;minePixels=mineCtx.createImageData(mineLayer.width,mineLayer.height)}
+ const sceneKey=pose+','+RENDER_STEP;
+ if(sceneKey!==mineRenderKey){minePixels.data.fill(0);
+ for(let y=0;y<600;y+=RENDER_STEP)for(let x=0;x<960;x+=RENDER_STEP){
+ const u=(x+RENDER_STEP/2-480)/projection,v=(285-y-RENDER_STEP/2)/projection;
  const vx=ch*cp-sh*u-ch*sp*v,vy=sh*cp+ch*u-sh*sp*v,vz=sp+cp*v;
  const hit=castVoxel(vx,vy,vz),t=hit.block?types[hit.block.type]:null;
  if(hit.boundary)continue;
  const ix=player.x+vx*hit.distance,iy=player.y+vy*hit.distance,iz=altitude+vz*hit.distance;
  const a=hit.side===0?iy:ix,b=hit.side===2?iy:iz,fu=a-Math.floor(a),fv=b-Math.floor(b);
- const facet=Math.floor(fu*4)+Math.floor(fv*4);let shade=(hit.side===2?.85:hit.side===0?.72:1)/(1+hit.distance*.09)*(facet%3===0?1.12:1);
+ const facet=Math.floor(fu*4)+Math.floor(fv*4);let shade=(hit.side===2?.85:hit.side===0?.72:1)/(1+hit.distance*.09)*(1+.035*Math.sin(fu*Math.PI*2)*Math.cos(fv*Math.PI*2));
  if(hit.normal){const [nx,ny,nz]=hit.normal,n=Math.hypot(nx,ny,nz);shade=(.65+Math.max(0,(nx*-.35+ny*-.45+nz*.8)/n)*.6)/(1+hit.distance*.09)}
  if(hit.y<4)shade=.92+(facet%3)*.06;
  const variation=((Math.imul(hit.x+31,17)^Math.imul(hit.y+53,29)^Math.imul(hit.z+19,43))>>>0)%23-11;
@@ -213,8 +225,13 @@ function draw(){
  if(ore&&!outside&&!timber){const hex=t.gem||t.color;rgb=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16))}
  
  if(t&&hit.block.hp<t.hp&&Math.abs(fu-.5-Math.sin(fv*17)*.1)<.015)rgb=[28,22,22];
- ctx.fillStyle='rgb('+rgb.map(c=>Math.min(255,Math.floor(c*shade))).join(',')+')';ctx.fillRect(x,y,6,6);
+ const pixel=((y/RENDER_STEP)*mineLayer.width+x/RENDER_STEP)*4;
+ for(let c=0;c<3;c++)minePixels.data[pixel+c]=Math.min(255,Math.max(0,Math.round(rgb[c]*shade)));
+ minePixels.data[pixel+3]=255;
  }
+ mineCtx.putImageData(minePixels,0,0);mineRenderKey=sceneKey;
+ }
+ ctx.drawImage(mineLayer,0,0,width,height);
  drawMiners();
  aimedBlock=castRay(heading,pitch);
  ctx.strokeStyle=aimedBlock.block&&aimedBlock.distance<=MINING_REACH?'#ffd376':'#ffffff';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(470,285);ctx.lineTo(490,285);ctx.moveTo(480,275);ctx.lineTo(480,295);ctx.stroke();
@@ -242,7 +259,7 @@ function drawHeldTool(){
 function mineAhead(){
  const hit=castRay(heading,pitch);if(!hit.block||hit.distance>MINING_REACH){message('Out of reach! Move within '+MINING_REACH+' m to mine.');return}
  const b=hit.block,t=types[b.type];if(t.value&&cargo.length>=capacity){message('Backpack full! Press R to return and sell.');return}
- b.hp-=toolDamage(b.type);
+ mineRevision++;b.hp-=toolDamage(b.type);
  if(b.hp<=0){if(hit.z===0)grid[hit.y][hit.x]=null;else verticalRock.set(hit.x+','+hit.y+','+hit.z,null);if(t.value){cargo.push(b.type);message('Collected '+b.type+' worth $'+t.value+'.')}else message('Block mined.');if(b.type==='relic'){won=true;money+=1000;message('Relic recovered! You won $1,000!')}}else message(b.type+': '+b.hp+' durability remaining.');
  update();draw();
 }
@@ -268,8 +285,8 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden){heldKeys.c
 canvas.style.cursor='crosshair';
 let pointerStart=null,dragged=false;
 canvas.addEventListener('pointerdown',e=>{pointerStart={x:e.clientX,y:e.clientY,last:e.clientX,lastY:e.clientY};dragged=false;canvas.setPointerCapture?.(e.pointerId)});
-canvas.addEventListener('pointermove',e=>{if(!pointerStart)return;const dx=e.clientX-pointerStart.last,dy=e.clientY-pointerStart.lastY;if(Math.hypot(e.clientX-pointerStart.x,e.clientY-pointerStart.y)>4)dragged=true;if(dragged){heading+=dx*.008;pitch=Math.max(-1.45,Math.min(1.45,pitch-dy*.006));draw()}pointerStart.last=e.clientX;pointerStart.lastY=e.clientY});
-canvas.addEventListener('pointerup',()=>{pointerStart=null});canvas.addEventListener('pointercancel',()=>{pointerStart=null;dragged=true});
+canvas.addEventListener('pointermove',e=>{if(!pointerStart)return;const dx=e.clientX-pointerStart.last,dy=e.clientY-pointerStart.lastY;if(Math.hypot(e.clientX-pointerStart.x,e.clientY-pointerStart.y)>4)dragged=true;if(dragged){heading+=dx*.008;pitch=Math.max(-1.45,Math.min(1.45,pitch-dy*.006))}pointerStart.last=e.clientX;pointerStart.lastY=e.clientY});
+canvas.addEventListener('lostpointercapture',()=>{pointerStart=null});canvas.addEventListener('pointerup',()=>{pointerStart=null});canvas.addEventListener('pointercancel',()=>{pointerStart=null;dragged=true});
 canvas.addEventListener('click',()=>{if(!dragged)mineAhead();dragged=false});
 document.addEventListener('keydown',e=>{if(e.target.closest?.('button,a,input,textarea,select'))return;const key=e.key.toLowerCase();if(keyActions[key]){e.preventDefault();heldKeys.add(key)}if(key==='r'&&!e.repeat)home();if(key===' '){e.preventDefault();if(!e.repeat)mineAhead()}});
 document.addEventListener('keyup',e=>{heldKeys.delete(e.key.toLowerCase())});

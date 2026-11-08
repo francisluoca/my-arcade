@@ -26,7 +26,7 @@ const ORBIT_CONTENT = {
     const classes = ['Scout','Brawler','Spinner','Guard','Duelist','Hunter','Sentinel','Reaper','Champion','Overlord'];
     const bots = Array.from({length:100}, (_, i) => ({
       id: `bot_${i}`, name: `${factions[Math.floor(i / 10)]} ${classes[i % 10]}`,
-      minLevel: 1 + Math.floor(i / 5),
+      minLevel: 1 + Math.floor(i / 5) * 2,
       health: .8 + (i % 10) * .07, speed: .8 + ((i * 3) % 10) * .045,
       damage: .85 + ((i * 7) % 10) * .045,
       rotation: .8 + ((i * 4) % 11) * .05,

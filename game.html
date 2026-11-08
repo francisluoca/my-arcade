@@ -42,7 +42,7 @@
 <button class="unit" data-type="sentinel" aria-pressed="false"><strong><span>✧ Sentinel</span><span>140 cr</span></strong><small>Precision laser · ignores armor<br>Reliable against heavy attackers</small></button>
 <section id="defenderPanel" class="defender-panel" hidden><h2 id="defenderName"></h2><p id="defenderStats" class="small"></p><p id="upgradePreview" class="small"></p><button id="upgrade" class="primary">Upgrade</button><button id="remove" class="danger">Delete defender</button><p class="small">Deleting refunds 50% of all credits spent on this defender.</p></section><p class="small">Click a placed defender to upgrade or delete it.</p>
 <p class="small">Every cleared wave earns credits. Enemies grow stronger forever. Survive as long as you can.</p></aside></div>
-<div class="actions"><button id="start" class="primary">Start wave 1</button><button id="pause" disabled>Pause</button><button id="speed">Speed: 1×</button></div>
+<p class="small">Spacebar: start the next wave or resume. Place at least one defender first.</p><div class="actions"><button id="start" class="primary" aria-keyshortcuts="Space" title="Space: start next wave or resume a paused wave">Start wave 1</button><button id="pause" disabled>Pause</button><button id="speed">Speed: 1×</button></div>
 <p id="message" role="status" aria-live="polite">Welcome! Spend your 500 credits on defenders before starting the first wave.</p>
 <details><summary>Enemy field guide · bosses every 5 waves</summary><p class="small">● Grunt: balanced attacker · wave 1<br>➤ Runner: fast, fragile, stun immune · wave 2<br>■ Bulwark: heavy health, takes 30% less damage · wave 3<br>+ Mender: slowly regenerates its own health · wave 4<br>◆ Swarm: small, quick attackers arriving in pairs · wave 6<br>➤ Raider: fast armored attacker, deals 2 base damage · wave 7<br>■ Siege Walker: 50% armor, massive health, deals 5 base damage · wave 9<br>★ Overlord: stun immune, massive health, 20% armor, deals 8 base damage · every 5th wave. Boss waves award 100 bonus credits.</p></details>
 <div id="jackpot" class="jackpot" role="status" hidden></div>
@@ -196,7 +196,21 @@
  canvas.addEventListener('click',e=>{if(over)return;if(collectSupply(e))return;const i=padAt(e);if(i<0){message('Choose a circular build pad beside the road.');return}const existing=towers.find(t=>t.pad===i);if(existing){selectedTower=existing;selected=null;const loaded=Math.min(ammoCapacity(existing)-existing.ammo,ammoReserve[existing.type]);existing.ammo+=loaded;ammoReserve[existing.type]-=loaded;message(loaded?'Reloaded '+names[existing.type]+' with '+loaded+' '+ammoNames[existing.type]+'.':existing.ammo===ammoCapacity(existing)?'Defender selected. Ammo is full.':'Defender selected. No '+ammoNames[existing.type]+' in storage. Collect a matching crate.');refresh();return}if(!selected){message('Select a defender from the recruit panel first.');return}const kind=types[selected];if(money<kind.cost){message('Not enough credits. Clear a wave to earn more.');return}money-=kind.cost;towers.push({pad:i,type:selected,x:pads[i][0],y:pads[i][1],cooldown:0,level:1,spent:kind.cost,ammo:ammoCapacity({type:selected,level:1})});message('Defender ready. '+(active?'Keep holding the line!':'Start the next wave when you are ready.'));refresh()});
  ui.upgrade.addEventListener('click',()=>{const t=selectedTower;if(over||!t||!towers.includes(t)||t.level>=maxLevel)return;const cost=upgradeCost(t);if(money<cost)return;money-=cost;t.spent+=cost;t.level++;t.cooldown=Math.min(t.cooldown,stats(t).rate);message(names[t.type]+' upgraded to level '+t.level+'!');refresh()});
  ui.remove.addEventListener('click',()=>{const t=selectedTower;if(over||!t||!towers.includes(t))return;const amount=refund(t);money+=amount;towers=towers.filter(other=>other!==t);selectedTower=null;message('Defender deleted. +'+amount+' credits refunded. Its pad is available again.');refresh()});
- ui.start.addEventListener('click',()=>{if(active||over)return;if(!towers.length){message('Recruit at least one defender before starting a wave.');return}document.getElementById('jackpot').hidden=true;wave++;remaining=7+wave*3;spawnTimer=0;active=true;paused=false;message(wave%5===0?'BOSS WAVE '+wave+'! An Overlord approaches. Clear the wave for 100 bonus credits.':'Wave '+wave+' incoming! Defend the base.');refresh()});
+ function startWave(){
+  if(over){message('The base was lost. Choose Play again before starting a new wave.');return}
+  if(active){if(paused){paused=false;message('Wave '+wave+' resumed.');refresh()}else message('Wave '+wave+' is already running. Space starts the next wave after this one is cleared.');return}
+  if(!towers.length){message('Place a defender first: choose a recruit, then click a circular build pad. After placing it, press Space.');return}
+  document.getElementById('jackpot').hidden=true;wave++;remaining=7+wave*3;spawnTimer=0;active=true;paused=false;
+  message(wave%5===0?'BOSS WAVE '+wave+'! An Overlord approaches. Clear the wave for 100 bonus credits.':'Wave '+wave+' incoming! Defend the base.');refresh();
+ }
+ ui.start.addEventListener('click',startWave);
+ document.addEventListener('keydown',e=>{
+  if(e.code!=='Space'&&e.key!==' '&&e.key!=='Spacebar')return;
+  if(e.target?.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"])'))return;
+  e.preventDefault();
+  if(!e.repeat)startWave();
+ },true);
+
  ui.pause.addEventListener('click',()=>{if(active&&!over){paused=!paused;refresh()}});
  ui.speed.addEventListener('click',()=>{speed=speed===1?2:1;refresh()});ui.restart.addEventListener('click',reset);
  document.addEventListener('visibilitychange',()=>{if(document.hidden&&active&&!over){paused=true;refresh()}});

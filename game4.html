@@ -1,57 +1,421 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Steel Front — Armored Warfare</title><style>
 *{box-sizing:border-box}body{margin:0;background:#101611;color:#eeeade;font-family:system-ui,sans-serif}main{max-width:1200px;margin:auto;padding:24px}header{display:flex;align-items:center;justify-content:space-between;gap:20px}h1{margin:0;font-size:36px;letter-spacing:-1px}h1 span{color:#e5bc74}.eyebrow{color:#a3ad8f;font:10px monospace;letter-spacing:3px}p{color:#a5ad9b;font-size:13px;line-height:1.7}.hud{display:flex;gap:24px;flex-wrap:wrap;padding:17px 20px;background:#1d271e;border:1px solid #414b37;border-radius:9px;margin:20px 0 14px;font:12px monospace}.hud b{color:#e5bc74}.field{position:relative}canvas{width:100%;display:block;background:#495541;border:1px solid #667151;border-radius:10px;touch-action:none;cursor:crosshair}.overlay{position:absolute;inset:0;display:grid;place-items:center;background:#0e150ee8;text-align:center;border-radius:10px;padding:24px}.overlay[hidden]{display:none}.overlay article{max-width:550px}.overlay h2{font-size:42px;margin:12px 0}.overlay button,header button{border:1px solid #e5bc74;background:#e5bc74;color:#211e14;border-radius:6px;padding:13px 25px;font-weight:bold;cursor:pointer}button:focus-visible,canvas:focus-visible{outline:3px solid white;outline-offset:3px}.bottom{display:flex;justify-content:space-between;gap:20px;align-items:center}.touch{display:flex;gap:8px;flex-wrap:wrap}.touch button{background:#2c3929;color:#eeeade;border:1px solid #657153;border-radius:6px;padding:12px;touch-action:none;min-width:44px}@media(pointer:fine){.touch{display:none}}@media(max-width:600px){main{padding:14px}h1{font-size:27px}.hud{gap:12px}.overlay h2{font-size:28px}.overlay p{font-size:11px}.bottom{display:block}}
-.arcade-home{display:inline-block;margin-bottom:20px;padding:10px 16px;color:#e5bc74;border:1px solid #e5bc7450;border-radius:7px;text-decoration:none;font-size:13px}.arcade-home:hover{background:#e5bc7415}</style></head><body><main><a class="arcade-home" href="index.html">← Home</a><header><div><div class="eyebrow">TACTICAL ARMORED COMBAT</div><h1>STEEL <span>FRONT</span></h1></div><button id="pause">Pause</button></header><div class="hud"><span>ARMOR <b id="hp">100</b></span><span>DESTROYED <b id="kills">0</b></span><span>WAVE <b id="wave">1</b></span><span>RELOAD <b id="reload">READY</b></span><span>CAPTURE <b id="capture">0%</b></span></div><div class="field"><canvas id="battle" width="1120" height="680" tabindex="0" aria-label="Tank battlefield. WASD drive and turn, mouse aim, click fire. Capture the center and defeat three enemy waves."></canvas><div class="overlay" id="overlay"><article><div class="eyebrow">OPERATION / IRON VALLEY</div><h2 id="title">Take the high ground.</h2><p id="description">Lead three friendly tanks to capture the central outpost and survive three waves of enemy armor. You are inside the tank: turn the turret to look around. Aim for side and rear armor to deal more damage. Buildings stop shells. Your southern supply depot slowly repairs your tank.</p><button id="play">Deploy tank →</button><p>W/S forward & reverse · A/D turn hull · Move mouse to aim · Click / Space fire<br>Q/E turn turret · P pause · Green depot repairs armor</p></article></div></div><div class="bottom"><p id="status" role="status">Original arcade tank combat. Capture the outpost and clear all three waves.</p><p>AP SHELLS · DIRECTIONAL ARMOR · DESTRUCTIBLE ENEMIES</p></div><div class="touch"><button data-key="w">Forward</button><button data-key="s">Reverse</button><button data-key="a">↶ Hull</button><button data-key="d">Hull ↷</button><button data-key="q">↶ Turret</button><button data-key="e">Turret ↷</button><button data-key=" ">Fire</button></div></main><script>
+.arcade-home{display:inline-block;margin-bottom:20px;padding:10px 16px;color:#e5bc74;border:1px solid #e5bc7450;border-radius:7px;text-decoration:none;font-size:13px}.arcade-home:hover{background:#e5bc7415}
+.header-actions{display:flex;gap:8px;flex-wrap:wrap}header button.secondary{background:transparent;color:#e5bc74}button:disabled{opacity:.4;cursor:default}
+.overlay{overflow-y:auto}.overlay article{width:100%;max-width:650px}.squad{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:22px 0}.squad div{padding:16px 8px;background:#243328;border:1px solid #59705a;border-radius:8px}.squad strong{display:block;color:#bee3db;font:700 14px monospace}.squad small{display:block;color:#a5ad9b;margin-top:8px;font-size:10px}.squad .commander{border-color:#e5bc74}.squad .commander strong{color:#e5bc74}.mission{padding:12px;background:#1b261c;border-left:3px solid #e5bc74;text-align:left}.mission b{color:#e5bc74}.lobby-only[hidden]{display:none}@media(max-width:600px){.field{min-height:540px}.squad{grid-template-columns:repeat(2,1fr);margin:12px 0}.overlay{padding:16px}.squad div{padding:10px 8px}.header-actions button{padding:10px 12px}}
+.workshop{margin:16px 0;text-align:left;padding:14px;background:#142018;border:1px solid #52634b;border-radius:8px}.workshop h3{margin:0 0 8px;font-size:16px}.upgrade-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.overlay .upgrade-grid button{padding:10px;background:#29392c;color:#eeeade;text-align:left;font-size:12px}.upgrade-grid small{display:block;margin-top:5px;color:#b7c7ab}.overlay{align-items:safe center}.overlay article{margin:auto}.workshop p{margin:8px 0}#upgradeNotice{min-height:18px;color:#e5bc74;font-size:12px}
+.research-tree{display:grid;grid-template-columns:1fr 1fr;gap:10px}.research-card{padding:12px;border:1px solid #52634b;border-radius:6px;background:#202f24}.research-card.selected{border-color:#e5bc74}.research-card h4{margin:0;color:#e5bc74}.research-card p{font-size:11px;line-height:1.5}.overlay .research-card button{padding:9px 12px;font-size:12px;width:100%}#researchNotice{color:#e5bc74;font-size:12px;min-height:18px}@media(max-width:420px){.research-tree{grid-template-columns:1fr}}
+.tank-preview{width:100%;height:auto;aspect-ratio:7/3;border:0;margin-top:8px;cursor:default;background:#17241c}
+.country-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.overlay .country-tabs button{padding:9px 14px;background:#27392c;color:#ddd}.overlay .country-tabs button[aria-pressed="true"]{background:#e5bc74;color:#211e14}#selectedTank{color:#e5bc74}
+#battle{aspect-ratio:1120/680;height:auto;image-rendering:auto}
+header{position:sticky;top:0;z-index:10;background:#101611;padding:10px 0}
+</style></head><body><main><a class="arcade-home" href="index.html">← Home</a><header><div><div class="eyebrow">TACTICAL ARMORED COMBAT</div><h1>STEEL <span>FRONT</span></h1></div><div class="header-actions"><button id="lobby" class="secondary" title="Leave the battle and return to the lobby (Esc)">Main lobby · Esc</button><button id="pause" disabled>Pause</button></div></header><div class="hud"><span>ARMOR <b id="hp">100</b></span><span>SPEED <b id="speed">0</b></span><span>DESTROYED <b id="kills">0</b></span><span>ROUND <b id="wave">1</b></span><span>TIME <b id="roundTime">2:00</b></span><span>REINFORCEMENTS <b id="reinforcementTime">10s</b></span><span>RELOAD <b id="reload">READY</b></span><span>CAPTURE <b id="capture">0%</b></span><span>TRACKS <b id="trackStatus" aria-live="polite">READY</b></span><span>TURRET <b id="turretStatus" aria-live="polite">READY</b></span><span>ENGINE <b id="engineStatus" aria-live="polite">READY</b></span></div><div class="field"><canvas id="battle" width="1120" height="680" tabindex="0" aria-label="Tank battlefield. WASD drive and turn, mouse aim, click fire. Capture the center and defeat three enemy waves."></canvas><div class="overlay" id="overlay"><article><div class="eyebrow">OPERATION / IRON VALLEY</div><h2 id="title">Main lobby</h2><p id="description">Lead three friendly tanks to capture the central outpost and survive three waves of enemy armor. The third-person camera follows behind your tank: turn the turret to look around. Aim for side and rear armor to deal more damage. Buildings stop shells. Your southern supply depot slowly repairs your tank.</p><div id="lobbyDetails" class="lobby-only"><div class="squad" aria-label="Your squad"><div class="commander"><strong>YOU</strong><small>COMMANDER · READY</small></div><div><strong>ECHO</strong><small>FRIENDLY AI · READY</small></div><div><strong>BRAVO</strong><small>FRIENDLY AI · READY</small></div><div><strong>DELTA</strong><small>FRIENDLY AI · READY</small></div></div><p class="mission"><b>IRON VALLEY / CAPTURE &amp; HOLD</b><br>4 starting friendly tanks · 3 rounds · 2 minutes each · A new battlefield every round<br>One friendly and one enemy reinforcement arrive every 10 seconds of combat.<br>Survive until each round timer reaches zero. Clearing enemies or capturing outpost A does not end the round early.<br>Roads boost speed; woodland, mud, and rocky ground slow tanks. Use the tactical map to find outpost A (gold) and your repair depot (green).</p><section class="workshop"><h3>Tank research · <span id="researchPoints">0</span> RP</h3><p>Earn 25 RP per squad elimination and 100 RP for victory. Research a tank to unlock it, then select it for deployment. Each country has its own unlocks, tank designs, and stats. RP and workshop upgrades are shared. These are fictional arcade tank lineups.</p><div id="countryTabs" class="country-tabs" aria-label="Choose country"></div><p id="selectedTank"></p><div id="researchTree" class="research-tree"></div><p id="researchNotice" role="status"></p></section><section class="workshop"><h3>Tank workshop · <span id="credits">150</span> credits</h3><p>150 starting credits · 50 per squad elimination · 200 for victory.<br>Upgrades apply to your tank on deployment and save in this browser.</p><div id="upgradeGrid" class="upgrade-grid"></div><p id="upgradeNotice" role="status"></p></section></div><button id="play">Deploy squad →</button><p>W/S accelerate & brake / reverse · A/D turn hull · Move mouse to aim · Hold Shift for precision aim · Click main cannon · Hold Space machine gun<br>Q/E turn turret · Mouse up/down or T/G elevate gun · P pause · Esc return to lobby anytime · Ammunition hits destroy the tank instantly · Rear engine hits disable all controls · Hold R to repair damaged parts (5 seconds) · Green depot repairs armor</p></article></div></div><div class="bottom"><p id="status" role="status">Survive three 2-minute rounds. Reinforcements arrive every 10 seconds.</p><p>AP SHELLS · DIRECTIONAL ARMOR · DESTRUCTIBLE ENEMIES</p></div><div class="touch"><button data-key="w">Forward</button><button data-key="s">Reverse</button><button data-key="a">↶ Hull</button><button data-key="d">Hull ↷</button><button data-key="q">↶ Turret</button><button data-key="e">Turret ↷</button><button data-key="c">Cannon</button><button data-key=" ">Machine gun</button><button data-key="shift">Hold to aim</button><button data-key="t">Aim up</button><button data-key="g">Aim down</button><button data-key="r">Hold to repair parts</button></div></main><script>
 'use strict';
-const canvas=document.getElementById('battle'),ctx=canvas.getContext('2d'),$=id=>document.getElementById(id),W=2400,H=1600,VW=1120,VH=680;
+const canvas=document.getElementById('battle'),ctx=canvas.getContext('2d'),$=id=>document.getElementById(id),W=4800,H=3200,VW=1120,VH=680;
 const cover=[{x:185,y:135,w:150,h:75},{x:790,y:125,w:145,h:85},{x:140,y:380,w:110,h:100},{x:865,y:390,w:105,h:85},{x:435,y:110,w:70,h:45},{x:630,y:470,w:70,h:50}];
 cover.push(...[{x:350,y:750,w:160,h:110},{x:1750,y:820,w:150,h:110},{x:850,y:550,w:130,h:90},{x:1450,y:1150,w:160,h:110},{x:500,y:1250,w:120,h:100},{x:1900,y:300,w:120,h:160},{x:1550,y:480,w:140,h:80},{x:2000,y:1250,w:160,h:80}]);
+// Expanded Iron Valley: four times the original area, with terrain-dependent traction.
+for(const b of cover){b.x*=2;b.y*=2}
+const outpost={x:W/2,y:H/2},depot={x:W/2,y:H-220};
+const terrainTypes={grass:{name:'Grassland',speed:1,color:'#65734c'},road:{name:'Road',speed:1.2,color:'#9b9378'},forest:{name:'Woodland',speed:.8,color:'#394f36'},mud:{name:'Mud flats',speed:.55,color:'#66503b'},rock:{name:'Rocky ground',speed:.7,color:'#77796d'}};
+const battlefields=[
+ {name:'IRON VALLEY',x:2400,y:1600,mud:[3500,2100],forest:[1100,1650,3900,750],rock:[2400,550],shift:0},
+ {name:'MARSH CROSSING',x:1900,y:1450,mud:[2700,1750],forest:[800,700,3800,2300],rock:[3900,500],shift:730},
+ {name:'STONE RIDGE',x:2850,y:1750,mud:[850,2300],forest:[1300,650,4100,2400],rock:[2900,1000],shift:1470}
+];
+let currentMap=0,nextMapIndex=0;
+function terrainAt(x,y){
+ const map=battlefields[currentMap];
+ if(Math.abs(x-outpost.x)<85||Math.abs(y-outpost.y)<75)return terrainTypes.road;
+ if(((x-map.mud[0])/650)**2+((y-map.mud[1])/500)**2<1)return terrainTypes.mud;
+ if(((x-map.forest[0])/800)**2+((y-map.forest[1])/1000)**2<1||((x-map.forest[2])/650)**2+((y-map.forest[3])/600)**2<1)return terrainTypes.forest;
+ if(((x-map.rock[0])/900)**2+((y-map.rock[1])/450)**2<1)return terrainTypes.rock;
+ return terrainTypes.grass;
+}
+function hills(){const map=battlefields[currentMap];return map.hills||(map.hills=[{x:map.rock[0],y:map.rock[1],radius:620,height:150},{x:map.forest[0],y:map.forest[1],radius:550,height:95},{x:map.forest[2],y:map.forest[3],radius:480,height:115}])}
+function terrainHeight(x,y){
+ let height=0;for(const hill of hills()){const r=((x-hill.x)**2+(y-hill.y)**2)/(hill.radius*hill.radius);if(r<1)height+=hill.height*(1-r)**2}
+ const roadFade=Math.min(1,Math.max(0,(Math.abs(x-outpost.x)-90)/160),Math.max(0,(Math.abs(y-outpost.y)-80)/160));
+ return height*roadFade;
+}
+const baseCover=cover.map(b=>({...b}));
+let trees=[],cachedHillFaces=[];
+function loadNextMap(){
+ currentMap=nextMapIndex++%battlefields.length;const map=battlefields[currentMap];
+ outpost.x=map.x;outpost.y=map.y;depot.x=map.x;
+ const safe=(b)=>{
+  const points=[depot,outpost,{x:300,y:300},{x:W-300,y:300},{x:W/2,y:180},{x:250,y:H/2},{x:W-250,y:H/2}];
+  return !points.some(p=>p.x>b.x-250&&p.x<b.x+b.w+250&&p.y>b.y-180&&p.y<b.y+b.h+180)&&Math.abs(b.x-outpost.x)>180&&Math.abs(b.y-outpost.y)>160;
+ };
+ cover.splice(0,cover.length,...baseCover.map(b=>({...b,x:150+(b.x+map.shift)%(W-450),y:150+(b.y+map.shift*.4)%(H-550)})).filter(safe));
+ for(let i=0;i<18;i++){const b={x:map.rock[0]-650+(i*173)%1300,y:map.rock[1]-300+(i*117)%600,w:35+i%3*12,h:30+i%4*8,rock:true};if(terrainAt(b.x,b.y)===terrainTypes.rock&&safe(b))cover.push(b)}
+ trees=scenery.filter(p=>terrainAt(p.x,p.y)===terrainTypes.forest&&safe({x:p.x-10,y:p.y-10,w:20,h:20}));
+ rebuildHillMesh();
+}
+function rebuildHillMesh(){
+ cachedHillFaces=[];
+ for(const hill of hills())for(let ring=0;ring<10;ring++)for(let i=0;i<40;i++){
+  const point=(r,a)=>{const x=hill.x+Math.cos(a)*r,y=hill.y+Math.sin(a)*r;return[x,y,terrainHeight(x,y)]};
+  const a=i*Math.PI/20,b=(i+1)*Math.PI/20,r=hill.radius*ring/10,next=hill.radius*(ring+1)/10;
+  const quad=[point(r,a),point(next,a),point(next,b),point(r,b)];
+  for(const points of [[quad[0],quad[1],quad[2]],[quad[0],quad[2],quad[3]]]){
+   const cx=points.reduce((sum,p)=>sum+p[0],0)/3,cy=points.reduce((sum,p)=>sum+p[1],0)/3,color=terrainAt(cx,cy).color;
+   const light=Math.round(Math.cos(a-2.4)*16+(10-ring)*.5);
+   const shade='#'+[1,3,5].map(i=>Math.max(0,Math.min(255,parseInt(color.slice(i,i+2),16)+light)).toString(16).padStart(2,'0')).join('');
+   cachedHillFaces.push({points,cx,cy,color:shade});
+  }
+ }
+}
 let camera={x:0,y:0},cursor={x:560,y:340};
 function follow(){camera.x=Math.max(0,Math.min(W-VW,(player?.x??W/2)-VW/2));camera.y=Math.max(0,Math.min(H-VH,(player?.y??H/2)-VH/2));if(mouseAim){pointer.x=cursor.x+camera.x;pointer.y=cursor.y+camera.y}}
 const scenery=Array.from({length:450},(_,i)=>({x:(i*347+53)%W,y:(i*193+19)%H,r:2+(i%5)}));
-let allies=[];
-let player,enemies=[],shells=[],sparks=[],wrecks=[],keys=new Set(),pointer={x:560,y:0},mouseAim=false,firing=false,playing=false,paused=false,last=0,wave=1,kills=0,capture=0,transition=0,elapsed=0;
-function tank(x,y,angle,enemy=false){return{x,y,angle,turret:angle,hp:enemy?65:100,max:enemy?65:100,cd:enemy?1.2:0,enemy,r:23}}
-function spawn(){const points=[[150,150],[2250,150],[1200,150],[150,800],[2250,800]];for(let i=0;i<wave+1;i++){const [x,y]=points[(i+wave-1)%points.length];enemies.push(tank(x,y,Math.PI/2,true))}$('status').textContent='Enemy wave '+wave+' approaching. Hold the outpost!'}
-function start(){player=tank(1200,1490,-Math.PI/2);enemies=[];allies=[-95,95,160].map((offset,i)=>({...tank(player.x+offset,player.y-60,-Math.PI/2),ally:true,name:['ECHO','BRAVO','DELTA'][i],hp:100}));shells=[];sparks=[];wrecks=[];keys.clear();firing=false;mouseAim=false;wave=1;kills=0;capture=0;transition=0;elapsed=0;paused=false;playing=true;spawn();$('overlay').hidden=true;$('pause').textContent='Pause';canvas.focus()}
-function end(win){playing=false;keys.clear();firing=false;$('title').textContent=win?'Sector secured.':'Tank knocked out.';$('description').textContent=(win?'Outpost captured and all enemy waves defeated. ':'Your crew fought hard. ')+kills+' tanks destroyed. Capture: '+Math.floor(capture)+'%.';$('play').textContent='Deploy again →';$('overlay').hidden=false}
-function pause(){if(!playing)return;paused=!paused;keys.clear();firing=false;$('pause').textContent=paused?'Resume':'Pause';$('status').textContent=paused?'Paused — press P to resume':'Hold the outpost and watch your flanks.'}
+let allies=[],tankBlasts=[],muzzleSmoke=[],hitCamera=null;
+const ROUND_DURATION=120;
+let roundRemaining=ROUND_DURATION;
+let player,enemies=[],shells=[],sparks=[],wrecks=[],keys=new Set(),pointer={x:560,y:0},mouseAim=false,firing=false,playing=false,paused=false,last=0,wave=1,kills=0,capture=0,transition=0,elapsed=0,reinforcementTimer=0,reinforcementCount=0;
+const upgradeSpecs=[['armor','Armor','+25 maximum armor'],['cannon','Cannon','+20% shell damage'],['engine','Engine','+15% driving speed'],['reload','Autoloader','10% faster reload']];
+const tankTypes={
+ medium:{name:'Vanguard · Medium',hp:100,speed:145,reverse:90,turn:1.8,damage:1,reload:1.1,cost:0,parent:null,role:'Balanced armor, mobility, and firepower.'},
+ scout:{name:'Kestrel · Light',hp:75,speed:205,reverse:120,turn:2.4,damage:.8,reload:.8,cost:100,parent:'medium',role:'Fast flanker with light armor and rapid fire.'},
+ heavy:{name:'Bastion · Heavy',hp:180,speed:95,reverse:55,turn:1.2,damage:1.35,reload:1.6,cost:200,parent:'medium',role:'Thick armor and a heavy gun. Slower movement.'},
+ destroyer:{name:'Longbow · Tank destroyer',hp:90,speed:120,reverse:65,turn:1.5,damage:1.9,reload:2,cost:300,parent:'heavy',role:'Devastating shells, long reload, and lighter armor.'}
+};
+// Shared dimensions drive both the research previews and battlefield models.
+const tankModels={
+ medium:{length:60,width:42,hullHeight:16,turretLength:27,turretWidth:25,turretHeight:14,barrel:44,color:['#527d83','#3e626b','#456e75','#87b3b5']},
+ scout:{length:46,width:32,hullHeight:11,turretLength:19,turretWidth:18,turretHeight:10,barrel:30,color:['#6c9869','#466a45','#547d51','#a6c991']},
+ heavy:{length:76,width:54,hullHeight:23,turretLength:37,turretWidth:34,turretHeight:20,barrel:52,color:['#8c8656','#615d39','#746e43','#c4ba80']},
+ destroyer:{length:68,width:44,hullHeight:12,turretLength:39,turretWidth:30,turretHeight:11,barrel:76,color:['#7b778e','#514f65','#625e77','#b7acc8']}
+};
+const countries={
+ usa:{name:'United States',prefix:'',names:['Vanguard','Kestrel','Bastion','Longbow'],color:['#68814e','#455b35','#536d3e','#a6b57b'],hp:1,speed:1,damage:1,reload:1},
+ germany:{name:'Germany',prefix:'de_',names:['Adler','Luchs','Donner','Jager'],color:['#887b60','#5c5140','#70644c','#bfb08b'],hp:1.12,speed:.9,damage:1.15,reload:1.12},
+ britain:{name:'United Kingdom',prefix:'uk_',names:['Regent','Swift','Bulwark','Lancer'],color:['#647866','#405447','#506552','#9fae91'],hp:1.06,speed:.95,damage:.95,reload:.82}
+};
+const classes=['medium','scout','heavy','destroyer'];
+for(const [country,nation] of Object.entries(countries))for(const [index,base] of classes.entries()){
+ const id=nation.prefix+base,original=tankTypes[base],model=tankModels[base];
+ if(country==='usa'){tankTypes[id].country=country;tankTypes[id].class=base;tankModels[id]={...model,color:nation.color};continue}
+ tankTypes[id]={...original,country,class:base,name:nation.names[index]+' · '+original.name.split(' · ')[1],parent:original.parent?nation.prefix+original.parent:null,hp:Math.round(original.hp*nation.hp),speed:Math.round(original.speed*nation.speed),reverse:Math.round(original.reverse*nation.speed),damage:Number((original.damage*nation.damage).toFixed(2)),reload:Number((original.reload*nation.reload).toFixed(2))};
+ tankModels[id]={...model,length:Math.round(model.length*(country==='germany'?1.1:.96)),turretWidth:Math.round(model.turretWidth*(country==='germany'?1.12:.92)),barrel:Math.round(model.barrel*(country==='germany'?1.12:1.05)),color:nation.color};
+}
+// Country lineups use different vehicle construction, beyond paint and scaling.
+const vehicleDesigns={
+ medium:{length:60,width:42,turretLength:27,turretWidth:27,turretHeight:16,hullStyle:'rounded',turretStyle:'rounded',detail:'stowage',design:'Cast rounded hull, dome turret, rear stowage.'},
+ scout:{length:44,width:30,turretLength:18,turretWidth:18,turretHeight:11,hullStyle:'sloped',turretStyle:'rounded',detail:'antenna',design:'Compact scout chassis with a small dome turret.'},
+ heavy:{length:74,width:54,turretLength:34,turretWidth:37,turretHeight:23,hullStyle:'rounded',turretStyle:'rounded',detail:'stowage',design:'Broad cast hull, tall rounded turret, spare track armor.'},
+ destroyer:{length:66,width:42,turretLength:35,turretWidth:31,turretHeight:10,hullStyle:'sloped',turretStyle:'open',detail:'open',design:'Low chassis with an open fighting compartment.'},
+ de_medium:{length:68,width:43,turretLength:34,turretWidth:26,turretHeight:13,hullStyle:'wedge',turretStyle:'sloped',detail:'cupola',design:'Sharp wedge hull, angular turret, raised commander cupola.'},
+ de_scout:{length:51,width:32,turretLength:24,turretWidth:20,turretHeight:12,hullStyle:'wedge',turretStyle:'sloped',detail:'cupola',design:'Long narrow reconnaissance hull and faceted turret.'},
+ de_heavy:{length:84,width:58,turretLength:43,turretWidth:38,turretHeight:20,hullStyle:'sloped',turretStyle:'sloped',detail:'skirts',design:'Massive angular chassis, broad turret, armored track skirts.'},
+ de_destroyer:{length:76,width:49,turretLength:47,turretWidth:35,turretHeight:13,hullStyle:'wedge',turretStyle:'wedge',detail:'casemate',design:'Long wedge-shaped armored gun compartment.'},
+ uk_medium:{length:73,width:37,turretLength:24,turretWidth:25,turretHeight:17,hullStyle:'sloped',turretStyle:'sloped',detail:'skirts',design:'Long cruiser chassis with track skirts and a compact turret.'},
+ uk_scout:{length:48,width:28,turretLength:20,turretWidth:17,turretHeight:9,hullStyle:'rounded',turretStyle:'sloped',detail:'antenna',design:'Slim low-profile scout with a small angular turret.'},
+ uk_heavy:{length:91,width:48,turretLength:31,turretWidth:30,turretHeight:21,hullStyle:'sloped',turretStyle:'rounded',detail:'skirts',design:'Extra-long infantry chassis with covered tracks and a dome turret.'},
+ uk_destroyer:{length:78,width:39,turretLength:30,turretWidth:29,turretHeight:22,hullStyle:'sloped',turretStyle:'sloped',detail:'tall',design:'Narrow chassis with a tall armored gun house.'}
+};
+for(const [id,design] of Object.entries(vehicleDesigns))Object.assign(tankModels[id],design);
+function chooseCountry(id){
+ if(playing||!Object.hasOwn(countries,id))return;
+ garage.country=id;
+ if(tankTypes[garage.selected].country!==id)garage.selected=countries[id].prefix+'medium';
+ $('researchNotice').textContent=countries[id].name+' research tree selected.';saveGarage();renderResearch();
+}
+let garage={credits:150,armor:0,cannon:0,engine:0,reload:0,research:0,unlocked:['medium','de_medium','uk_medium'],selected:'medium',country:'usa'};
+try{const saved=JSON.parse(localStorage.getItem('steelFrontGarage'));if(saved&&typeof saved==='object'){if(Number.isSafeInteger(saved.credits)&&saved.credits>=0)garage.credits=saved.credits;for(const [key] of upgradeSpecs)if(Number.isInteger(saved[key])&&saved[key]>=0&&saved[key]<=3)garage[key]=saved[key]}}catch{}
+// Load research separately so existing workshop saves remain compatible.
+try{const saved=JSON.parse(localStorage.getItem('steelFrontGarage'));if(saved){
+ if(Number.isSafeInteger(saved.research)&&saved.research>=0)garage.research=saved.research;
+ if(Array.isArray(saved.unlocked))for(const [id,type] of Object.entries(tankTypes))if(saved.unlocked.includes(id)&&!garage.unlocked.includes(id)&&garage.unlocked.includes(type.parent))garage.unlocked.push(id);
+ if(garage.unlocked.includes(saved.selected))garage.selected=saved.selected;
+ garage.country=tankTypes[garage.selected].country;
+}}catch{}
+function renderResearch(){
+ $('researchPoints').textContent=garage.research;
+ $('countryTabs').replaceChildren(...Object.entries(countries).map(([id,nation])=>{const button=document.createElement('button');button.type='button';button.textContent=nation.name;button.setAttribute('aria-pressed',String(garage.country===id));button.disabled=playing;button.onclick=()=>chooseCountry(id);return button}));
+ $('selectedTank').textContent='Deploying: '+countries[tankTypes[garage.selected].country].name+' / '+tankTypes[garage.selected].name;
+
+ $('researchTree').replaceChildren(...Object.entries(tankTypes).filter(([,type])=>type.country===garage.country).map(([id,type])=>{
+  const owned=garage.unlocked.includes(id),ready=!type.parent||garage.unlocked.includes(type.parent),selected=garage.selected===id;
+  const card=document.createElement('div');card.className='research-card'+(selected?' selected':'');
+  const title=document.createElement('h4');title.textContent=type.name;
+  const info=document.createElement('p');info.textContent=type.role+' '+tankModels[id].design;
+  const stats=document.createElement('p');stats.textContent=type.hp+' armor · '+type.speed+' speed · '+Math.round(type.damage*100)+'% damage · '+type.reload+'s reload (base)';
+  const requirement=document.createElement('p');requirement.textContent=owned?'Unlocked':('Requires '+tankTypes[type.parent].name+' · '+type.cost+' RP');
+  const button=document.createElement('button');button.type='button';button.textContent=selected?'Selected':owned?'Select tank':!ready?'Research '+tankTypes[type.parent].name+' first':'Research · '+type.cost+' RP';
+  button.disabled=playing||selected||(!owned&&(!ready||garage.research<type.cost));button.onclick=()=>chooseTank(id);
+  const preview=document.createElement('canvas');preview.width=280;preview.height=120;preview.className='tank-preview';preview.setAttribute('aria-label',type.name+' 3D tank preview');
+  const previewCtx=preview.getContext('2d');previewCtx.fillStyle='#17241c';previewCtx.fillRect(0,0,280,120);
+  drawTank3D({x:0,y:0,z:180,angle:-.55,turret:-.35,type:id},-Math.PI/2,0,180,310,20,new Float64Array(280).fill(2200),previewCtx,280,55);
+  card.append(title,preview,info,stats,requirement,button);return card;
+ }));
+}
+function chooseTank(id){
+ if(playing||!Object.hasOwn(tankTypes,id))return;
+ const type=tankTypes[id];
+ if(!garage.unlocked.includes(id)){
+  if(!garage.unlocked.includes(type.parent)||garage.research<type.cost)return;
+  garage.research-=type.cost;garage.unlocked.push(id);
+  $('researchNotice').textContent=type.name+' researched and selected!';
+ }else $('researchNotice').textContent=type.name+' selected for deployment.';
+ garage.selected=id;garage.country=type.country;saveGarage();renderResearch();
+}
+function saveGarage(){try{localStorage.setItem('steelFrontGarage',JSON.stringify(garage))}catch{$('upgradeNotice').textContent='Browser storage unavailable. Upgrades last for this session.'}}
+function rewardCredits(amount,rp=0){garage.credits+=amount;garage.research+=rp;saveGarage()}
+function renderGarage(){
+ renderResearch();$('credits').textContent=garage.credits;
+ $('upgradeGrid').replaceChildren(...upgradeSpecs.map(([key,name,effect])=>{
+  const rank=garage[key],cost=100*(rank+1),button=document.createElement('button');
+  button.type='button';button.textContent=name+' · '+rank+'/3';
+  const detail=document.createElement('small');detail.textContent=rank===3?'MAX LEVEL':effect+' per level · '+cost+' credits';button.append(detail);
+  button.disabled=playing||rank===3||garage.credits<cost;button.onclick=()=>buyUpgrade(key);return button;
+ }));
+}
+function buyUpgrade(key){
+ if(playing||!upgradeSpecs.some(([id])=>id===key))return;
+ const rank=garage[key],cost=100*(rank+1);if(rank>=3||garage.credits<cost)return;
+ garage.credits-=cost;garage[key]++;$('upgradeNotice').textContent=upgradeSpecs.find(([id])=>id===key)[1]+' upgraded to level '+garage[key]+'.';saveGarage();renderGarage();
+}
+function tank(x,y,angle,enemy=false){return{x,y,angle,turret:angle,turretTarget:angle,speed:0,elevation:-.02,hp:enemy?65:100,max:enemy?65:100,cd:enemy?1.2:0,enemy,r:23,type:'medium',tracks:{left:true,right:true},repairProgress:0,turretDisabled:false,engineDisabled:false,ammoDetonated:false,shotsFired:0,mgCooldown:0}}
+function spawn(){const points=[[300,300],[W-300,300],[W/2,180],[250,H/2],[W-250,H/2]];for(let i=0;i<wave+1;i++){const [x,y]=points[(i+wave-1)%points.length];const enemy=tank(x,y,Math.PI/2,true);enemy.type=countries[garage.country==='germany'?'britain':'germany'].prefix+classes[(i+wave-1)%4];enemies.push(enemy)}$('status').textContent=battlefields[currentMap].name+' · Round '+wave+' — capture the outpost and clear enemy armor!'}
+function findReinforcementSpot(x,y){
+ const occupied=[player,...allies,...enemies].filter(t=>t&&t.hp>0);
+ for(let ring=0;ring<14;ring++)for(let i=0;i<12;i++){
+  const angle=i*Math.PI/6,px=x+Math.cos(angle)*ring*85,py=y+Math.sin(angle)*ring*85;
+  if(!blocked(px,py,48)&&occupied.every(t=>Math.hypot(t.x-px,t.y-py)>100))return{x:px,y:py};
+ }
+ return null;
+}
+function spawnReinforcements(){
+ const entry=[[300,300],[W-300,300],[W/2,180],[250,H/2],[W-250,H/2]][reinforcementCount%5];
+ const friendlySpot=findReinforcementSpot(depot.x,depot.y),enemySpot=findReinforcementSpot(...entry);
+ if(!friendlySpot||!enemySpot)return;
+ const type=classes[reinforcementCount%classes.length];reinforcementCount++;
+ const friendly=tank(friendlySpot.x,friendlySpot.y,-Math.PI/2);friendly.ally=true;friendly.name='RESERVE '+reinforcementCount;friendly.type=countries[garage.country].prefix+type;
+ const enemy=tank(enemySpot.x,enemySpot.y,Math.PI/2,true);enemy.type=countries[garage.country==='germany'?'britain':'germany'].prefix+type;
+ allies.push(friendly);enemies.push(enemy);
+ $('status').textContent='Reinforcements arrived: one friendly tank and one enemy tank.';
+}
+function allyObjective(t,index){
+ const role=index%3;
+ if(role===0&&capture<100)return{x:outpost.x+(Math.floor(index/3)%3-1)*25,y:outpost.y};
+ const routes=role===1?[[-420,220],[-520,-350],[-180,-500]]:role===2?[[420,220],[520,-350],[180,-500]]:[[0,-280],[280,0],[0,280],[-280,0]];
+ if(t.patrolMap!==currentMap){t.patrolMap=currentMap;t.patrolStep=0}
+ const waypoint=()=>{const [x,y]=routes[(t.patrolStep||0)%routes.length];return{x:outpost.x+x,y:outpost.y+y}};
+ let goal=waypoint();if(Math.hypot(t.x-goal.x,t.y-goal.y)<80){t.patrolStep++;goal=waypoint()}
+ if(tankBlocked(t,goal.x,goal.y))for(let r=100;r<=400;r+=100)for(let j=0;j<8;j++){const x=goal.x+Math.cos(j*Math.PI/4)*r,y=goal.y+Math.sin(j*Math.PI/4)*r;if(!tankBlocked(t,x,y))return{x,y}}
+ return goal;
+}
+function start(){muzzleSmoke=[];hitCamera=null;lastAimX=lastAimY=null;tankBlasts=[];$('overlay').style.background='';loadNextMap();player=tank(depot.x,depot.y,-Math.PI/2);player.type=garage.selected;player.stats=tankTypes[player.type];player.max=player.hp=player.stats.hp+25*garage.armor;enemies=[];allies=[-95,95,160].map((offset,i)=>({...tank(player.x+offset,player.y-60,-Math.PI/2),ally:true,type:countries[garage.country].prefix+['scout','medium','heavy'][i],name:['ECHO','BRAVO','DELTA'][i],hp:100}));shells=[];sparks=[];wrecks=[];keys.clear();firing=false;mouseAim=false;wave=1;kills=0;capture=0;roundRemaining=ROUND_DURATION;transition=0;elapsed=0;reinforcementTimer=0;reinforcementCount=0;paused=false;playing=true;spawn();$('overlay').hidden=true;$('pause').textContent='Pause';$('pause').disabled=false;canvas.focus()}
+function end(win){if(!playing)return;if(win)rewardCredits(200,100);$('lobbyDetails').hidden=true;$('pause').disabled=true;playing=false;keys.clear();firing=false;$('title').textContent=win?'Sector secured.':player.ammoDetonated?'Ammunition detonated!':'Tank knocked out.';$('description').textContent=(win?'All three timed rounds survived. ':player.ammoDetonated?'A direct hit ignited the ammunition storage and destroyed your tank. ':'Your crew fought hard. ')+kills+' tanks destroyed. Capture: '+Math.floor(capture)+'%. Research earned: '+(kills*25+(win?100:0))+' RP. Visit Main lobby to research tanks.';if(!win)$('overlay').style.background='#0e150e80';$('play').textContent='Deploy again →';$('overlay').hidden=false}
+function lobby(){muzzleSmoke=[];hitCamera=null;tankBlasts=[];$('overlay').style.background='';
+ playing=false;paused=false;keys.clear();firing=false;mouseAim=false;lastAimX=lastAimY=null;
+ roundRemaining=ROUND_DURATION;reinforcementTimer=0;player=null;enemies=[];allies=[];shells=[];sparks=[];wrecks=[];wave=1;kills=0;capture=0;
+ $('title').textContent='Main lobby';
+ $('description').textContent='Your armored squad is ready. Deploy into Iron Valley, survive timed rounds across Iron Valley, Marsh Crossing, and Stone Ridge. The battlefield changes after every round.';
+ renderGarage();$('lobbyDetails').hidden=false;$('play').textContent='Deploy squad →';$('overlay').hidden=false;
+ $('pause').textContent='Pause';$('pause').disabled=true;
+ $('status').textContent='In the main lobby · Your squad is ready to deploy.';
+}
+function returnToLobby(){saveGarage();lobby();$('play').focus()}
+function pause(){if(!playing)return;lastAimX=lastAimY=null;paused=!paused;keys.clear();firing=false;$('pause').textContent=paused?'Resume':'Pause';$('status').textContent=paused?'Paused — press P to resume':'Hold the outpost and watch your flanks.'}
 function normalize(a){return Math.atan2(Math.sin(a),Math.cos(a))}
 function turn(a,b,rate){return a+Math.max(-rate,Math.min(rate,normalize(b-a)))}
-function blocked(x,y,r=22){return x<r||y<r||x>W-r||y>H-r||cover.some(b=>x>b.x-r&&x<b.x+b.w+r&&y>b.y-r&&y<b.y+b.h+r)}
-function move(t,speed,dt){const x=t.x+Math.cos(t.angle)*speed*dt,y=t.y+Math.sin(t.angle)*speed*dt;if(!blocked(x,t.y))t.x=x;if(!blocked(t.x,y))t.y=y}
+function blocked(x,y,r=22){return x<r||y<r||x>W-r||y>H-r||cover.some(b=>x>b.x-r&&x<b.x+b.w+r&&y>b.y-r&&y<b.y+b.h+r)||trees.some(tree=>Math.hypot(x-tree.x,y-tree.y)<r+9)}
+function tankBlocked(t,x,y,angle=t.angle){
+ const model=tankModels[t.type]||tankModels.medium,a=model.length/2+2,b=model.width/2+8,c=Math.cos(angle),s=Math.sin(angle);
+ const ex=Math.abs(c)*a+Math.abs(s)*b,ey=Math.abs(s)*a+Math.abs(c)*b;
+ if(x-ex<0||y-ey<0||x+ex>W||y+ey>H)return true;
+ for(const obstacle of cover){
+  const dx=obstacle.x+obstacle.w/2-x,dy=obstacle.y+obstacle.h/2-y,hx=obstacle.w/2,hy=obstacle.h/2;
+  if(Math.abs(dx)<ex+hx&&Math.abs(dy)<ey+hy&&Math.abs(dx*c+dy*s)<a+hx*Math.abs(c)+hy*Math.abs(s)&&Math.abs(-dx*s+dy*c)<b+hx*Math.abs(s)+hy*Math.abs(c))return true;
+ }
+ return trees.some(tree=>{const dx=tree.x-x,dy=tree.y-y,u=dx*c+dy*s,v=-dx*s+dy*c;return Math.hypot(u-Math.max(-a,Math.min(a,u)),v-Math.max(-b,Math.min(b,v)))<9});
+}
+function turnHull(t,angle){if(t.engineDisabled||!t.tracks.left||!t.tracks.right)return;if(!tankBlocked(t,t.x,t.y,angle))t.angle=angle}
+function move(t,speed,dt){
+ if(t.engineDisabled||!t.tracks.left||!t.tracks.right){t.speed=0;return}
+ const ahead=terrainHeight(t.x+Math.cos(t.angle)*20*Math.sign(speed),t.y+Math.sin(t.angle)*20*Math.sign(speed)),grade=(ahead-terrainHeight(t.x,t.y))/20;
+ const distance=speed*terrainAt(t.x,t.y).speed*Math.max(.5,Math.min(1.15,1-grade*.7))*dt,steps=Math.max(1,Math.ceil(Math.abs(distance)/8));
+ for(let i=0;i<steps;i++){
+  const x=t.x+Math.cos(t.angle)*distance/steps,y=t.y+Math.sin(t.angle)*distance/steps;
+  if(!tankBlocked(t,x,t.y))t.x=x;if(!tankBlocked(t,t.x,y))t.y=y;
+ }
+}
+function drivePlayer(targetSpeed,dt){
+ const maximum=player.stats.speed*(1+.15*garage.engine);
+ const braking=targetSpeed===0||player.speed*targetSpeed<0;
+ const rate=maximum/(braking?(targetSpeed===0?2:1.1):3.5);
+ player.speed+=Math.max(-rate*dt,Math.min(rate*dt,targetSpeed-player.speed));
+ const x=player.x,y=player.y;move(player,player.speed,dt);
+ const expected=Math.abs(player.speed)*terrainAt(x,y).speed*dt;
+ if(expected>.01&&Math.hypot(player.x-x,player.y-y)<expected*.2)player.speed=0;
+}
+function turretTurnRate(t){return{scout:1,medium:.75,heavy:.45,destroyer:.55}[tankTypes[t.type]?.class]||.75}
 function burst(x,y,color,n=12){for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,s=30+Math.random()*130;sparks.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:.25+Math.random()*.5,color})}}
-function fire(t){if(t.cd>0||t.hp<=0)return;t.cd=t.enemy?2.5:1.1;shells.push({x:t.x+Math.cos(t.turret)*37,y:t.y+Math.sin(t.turret)*37,vx:Math.cos(t.turret)*510,vy:Math.sin(t.turret)*510,enemy:t.enemy,life:2.4});burst(t.x+Math.cos(t.turret)*39,t.y+Math.sin(t.turret)*39,'#ffe7a2',5)}
+function emitMuzzleSmoke(t,muzzle,pitch,model){
+ const x=t.x+Math.cos(t.turret)*muzzle,y=t.y+Math.sin(t.turret)*muzzle;
+ const height=terrainHeight(t.x,t.y)+9+model.hullHeight+model.turretHeight*.5+model.barrel*Math.sin(pitch);
+ for(let i=0;i<9;i++){
+  const spread=(Math.random()-.5)*.65,angle=t.turret+spread,speed=18+Math.random()*35;
+  muzzleSmoke.push({x,y,height,vx:Math.cos(angle)*speed+7,vy:Math.sin(angle)*speed,vz:12+Math.random()*12,age:0,life:.8+Math.random()*.5,radius:3+Math.random()*3});
+ }
+}
+function fire(t,target=null){if(t.cd>0||t.hp<=0||t.turretDisabled||t.engineDisabled)return;t.cd=t.enemy?2.5:t===player?player.stats.reload*(1-.1*garage.reload):1.1;const targetModel=tankModels[(target||player)?.type]||tankModels.medium;
+ const shot=t.shotsFired++%4;
+ let height=t.enemy?(shot===0?10+targetModel.hullHeight+targetModel.turretHeight/2:shot===1?Math.max(17,6+targetModel.hullHeight):10):18;
+ const model=tankModels[t.type]||tankModels.medium,pitch=t===player?t.elevation:0;
+ const muzzle=model.turretLength*.35+model.barrel*Math.cos(pitch);
+ if(t===player)height=9+model.hullHeight+model.turretHeight*.5+model.barrel*Math.sin(pitch);
+ shells.push({height,vz:510*Math.sin(pitch),x:t.x+Math.cos(t.turret)*muzzle,y:t.y+Math.sin(t.turret)*muzzle,vx:Math.cos(t.turret)*510*Math.cos(pitch),vy:Math.sin(t.turret)*510*Math.cos(pitch),enemy:t.enemy,ally:!!t.ally,playerShot:t===player,damageMultiplier:t===player?player.stats.damage*(1+.2*garage.cannon):1,life:2.4});emitMuzzleSmoke(t,muzzle,pitch,model);burst(t.x+Math.cos(t.turret)*muzzle,t.y+Math.sin(t.turret)*muzzle,t.enemy?'#ff8050':t.ally?'#83f5ff':'#ffe7a2',t.enemy||t.ally?10:5)}
+function fireMachineGun(){
+ if(!playing||paused||!player||player.hp<=0||player.turretDisabled||player.engineDisabled||player.mgCooldown>0)return;
+ player.mgCooldown=.1;
+ const t=player,model=tankModels[t.type],pitch=t.elevation,angle=t.turret+(Math.random()-.5)*.009,side=model.turretWidth/2+3;
+ const x=t.x+Math.cos(t.turret)*25-Math.sin(t.turret)*side,y=t.y+Math.sin(t.turret)*25+Math.cos(t.turret)*side;
+ shells.push({x,y,height:9+model.hullHeight+model.turretHeight*.5+15*Math.sin(pitch),vx:Math.cos(angle)*760*Math.cos(pitch),vy:Math.sin(angle)*760*Math.cos(pitch),vz:760*Math.sin(pitch),enemy:false,ally:false,playerShot:true,machineGun:true,life:1.6});
+ burst(x,y,'#fff2b3',2);
+}
 function lineClear(a,b){const d=Math.hypot(b.x-a.x,b.y-a.y);for(let t=25;t<d;t+=18)if(blocked(a.x+(b.x-a.x)*t/d,a.y+(b.y-a.y)*t/d,2))return false;return true}
-function update(dt){follow();elapsed+=dt;player.cd=Math.max(0,player.cd-dt);const steering=Number(keys.has('d')||keys.has('arrowright'))-Number(keys.has('a')||keys.has('arrowleft'));player.angle+=steering*1.8*dt;move(player,(Number(keys.has('w')||keys.has('arrowup'))*145-Number(keys.has('s')||keys.has('arrowdown'))*90),dt);
-if(mouseAim)player.turret=turn(player.turret,Math.atan2(pointer.y-player.y,pointer.x-player.x),3.2*dt);if(keys.has('q')||keys.has('e')){mouseAim=false;player.turret+=(Number(keys.has('e'))-Number(keys.has('q')))*2.1*dt}if(firing||keys.has(' '))fire(player);
-if(player.x>1100&&player.x<1300&&player.y>1430)player.hp=Math.min(100,player.hp+5*dt);
-const near=[player,...allies.filter(t=>t.hp>0)].some(t=>Math.hypot(t.x-1200,t.y-800)<90),contested=enemies.some(t=>t.hp>0&&Math.hypot(t.x-1200,t.y-800)<105);if(near&&!contested)capture=Math.min(100,capture+10*dt);
+function chooseEnemyTarget(enemy){
+ const candidates=[player,...allies].filter(t=>t&&t.hp>0&&!t.destroyed);
+ let target=null,best=Infinity;
+ for(const candidate of candidates){
+  // Favor nearby tanks with a clear shot; retain a target while it remains competitive.
+  let score=Math.hypot(candidate.x-enemy.x,candidate.y-enemy.y)+(lineClear(enemy,candidate)?0:500);
+  if(candidate===enemy.target)score*=.85;
+  if(score<best){best=score;target=candidate}
+ }
+ enemy.target=target;return target;
+}
+function tankHitPart(t,x,y,height=10){
+ 
+ const model=tankModels[t.type],dx=x-t.x,dy=y-t.y;
+ if(height<0||height>10+model.hullHeight+model.turretHeight)return null;
+ if(height>9+model.hullHeight){
+  const forward=dx*Math.cos(t.turret)+dy*Math.sin(t.turret)+2,side=-dx*Math.sin(t.turret)+dy*Math.cos(t.turret);
+  return height<=10+model.hullHeight+model.turretHeight&&Math.abs(forward)<=model.turretLength/2+2&&Math.abs(side)<=model.turretWidth/2+2?'turret':null;
+ }
+ const forward=dx*Math.cos(t.angle)+dy*Math.sin(t.angle),side=-dx*Math.sin(t.angle)+dy*Math.cos(t.angle);
+ // Ammunition racks sit along the middle hull sides, above the tracks.
+ if(height>=17&&height<=9+model.hullHeight&&Math.abs(forward)<model.length*.25&&Math.abs(side)>=model.width/2-14&&Math.abs(side)<=model.width/2-3)return 'ammo';
+ if(height>16&&Math.abs(side)>model.width/2-3)return null;
+ if(Math.abs(forward)>model.length/2+2||Math.abs(side)>model.width/2+8)return null;
+ if(Math.abs(side)>=model.width/2-6)return side<0?'left':'right';
+ return forward<-model.length*.2?'engine':'hull';
+}
+function recordHitCamera(shell,t,part,damage=0){
+ if(!shell.playerShot||!t.enemy)return;
+ const dx=shell.x-t.x,dy=shell.y-t.y;
+ hitCamera={time:elapsed,type:t.type,part,damage:Math.round(damage),forward:dx*Math.cos(t.angle)+dy*Math.sin(t.angle),side:-dx*Math.sin(t.angle)+dy*Math.cos(t.angle),turret:normalize(t.turret-t.angle),height:shell.height,
+  left:!t.tracks.left,right:!t.tracks.right,engine:t.engineDisabled,turretDisabled:t.turretDisabled,destroyed:t.hp<=0,ammo:t.ammoDetonated};
+}
+function drawHitCamera(){
+ if(!hitCamera||elapsed-hitCamera.time>5)return;
+ const hit=hitCamera,model=tankModels[hit.type],x=VW-300,y=48,w=284,h=235,cx=x+w/2,cy=y+110,s=.95;
+ ctx.save();ctx.fillStyle='#071510f5';ctx.fillRect(x,y,w,h);ctx.strokeStyle='#83c9b0';ctx.lineWidth=1;ctx.strokeRect(x,y,w,h);
+ ctx.fillStyle='#bbecd9';ctx.font='bold 12px monospace';ctx.fillText('HIT CAMERA / X-RAY',x+12,y+19);ctx.font='10px monospace';ctx.fillText(tankTypes[hit.type].name,x+12,y+36);
+ ctx.save();ctx.translate(cx,cy);ctx.scale(s,s);
+ const length=model.length,width=model.width;
+ function module(side,forward,mw,mh,disabled,active){ctx.fillStyle=active?'#ffba4caa':disabled?'#f2684d99':'#5bd8b944';ctx.strokeStyle=active?'#ffe49c':disabled?'#ff8c71':'#75cbb2';ctx.fillRect(side-mw/2,-forward-mh/2,mw,mh);ctx.strokeRect(side-mw/2,-forward-mh/2,mw,mh)}
+ ctx.fillStyle='#70c9b51a';ctx.fillRect(-width/2,-length/2,width,length);ctx.strokeStyle='#9de8d4';ctx.strokeRect(-width/2,-length/2,width,length);
+ module(-width/2,0,11,length,hit.left,hit.part==='left');module(width/2,0,11,length,hit.right,hit.part==='right');
+ module(0,-length*.32,width-15,length*.23,hit.engine,hit.part==='engine');
+ for(const side of [-1,1])module(side*(width/2-10),0,7,length*.32,hit.ammo,hit.part==='ammo');
+ ctx.save();ctx.rotate(hit.turret);module(0,2,model.turretWidth,model.turretLength,hit.turretDisabled,hit.part==='turret');ctx.strokeStyle=hit.turretDisabled?'#ff8c71':'#9de8d4';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(0,-model.turretLength*.3);ctx.lineTo(0,-model.turretLength*.3-model.barrel);ctx.stroke();ctx.restore();
+ ctx.fillStyle='#fff1ac';ctx.beginPath();ctx.arc(hit.side,-hit.forward,4,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#ff704d';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(hit.side,-hit.forward,8,0,Math.PI*2);ctx.stroke();ctx.restore();
+ const names={left:'LEFT TRACK',right:'RIGHT TRACK',engine:'ENGINE',turret:'TURRET',ammo:'AMMUNITION',hull:'HULL'};
+ ctx.fillStyle=hit.destroyed?'#ff9876':'#ffe49c';ctx.font='bold 12px monospace';ctx.fillText(hit.destroyed?(hit.ammo?'AMMO DETONATION · DESTROYED':'TANK DESTROYED'):hit.part==='hull'?'HULL HIT · '+hit.damage+' DAMAGE':names[hit.part]+' DISABLED',x+12,y+181);
+ const disabled=[];if(hit.left)disabled.push('L TRACK');if(hit.right)disabled.push('R TRACK');if(hit.engine)disabled.push('ENGINE');if(hit.turretDisabled)disabled.push('TURRET');
+ ctx.font='10px monospace';ctx.fillStyle='#c8dbd0';ctx.fillText('DISABLED: '+(disabled.slice(0,2).join(', ')||'NONE'),x+12,y+202);if(disabled.length>2)ctx.fillText(disabled.slice(2).join(', '),x+12,y+217);ctx.restore();
+}
+function destroyTank(t,ammo=false){
+ if(t.destroyed)return;
+ t.destroyed=true;t.ammoDetonated=ammo;t.hp=0;t.speed=0;t.engineDisabled=t.turretDisabled=true;t.tracks.left=t.tracks.right=false;
+ tankBlasts.push({x:t.x,y:t.y,started:Date.now(),power:ammo?1.4:1});
+ burst(t.x,t.y,'#ff8d32',ammo?100:65);burst(t.x,t.y,'#ffe5a0',ammo?50:30);
+ wrecks.push({x:t.x,y:t.y,angle:t.angle});
+ if(t.enemy){kills++;rewardCredits(50,25);$('status').textContent=ammo?'Enemy ammunition detonated!':'Enemy tank destroyed!'}
+ else $('status').textContent=t===player?(ammo?'Ammunition storage hit — tank destroyed!':'Your tank was destroyed!'):t.name+' was knocked out.';
+}
+function detonateAmmo(t){if(t.hp>0)destroyTank(t,true)}
+function damageTrack(side,t=player){
+ t.tracks[side]=false;t.speed=0;t.repairProgress=0;
+ $('status').textContent=t!==player?(t.enemy?'Enemy':t.name)+' '+side+' track disabled!':side.toUpperCase()+' track disabled! Hold R for 5 seconds to repair. Your turret and cannon still work.';
+}
+function damageEngine(t=player){t.engineDisabled=true;t.speed=0;t.turretTarget=t.turret;t.repairProgress=0;$('status').textContent=t!==player?(t.enemy?'Enemy':t.name)+' engine disabled!':'Engine disabled! Driving, aiming, and firing are offline. Hold R for 5 seconds to repair.'}
+function damageTurret(t=player){t.turretDisabled=true;t.turretTarget=t.turret;t.repairProgress=0;$('status').textContent=t!==player?(t.enemy?'Enemy':t.name)+' turret disabled!':'Turret disabled! Aiming and firing are offline. Hold R for 5 seconds to repair.'}
+function updateTrackRepair(dt){
+ if(player.tracks.left&&player.tracks.right&&!player.turretDisabled&&!player.engineDisabled)return;
+ if(keys.has('r')){
+  player.repairProgress=Math.min(5,player.repairProgress+dt);
+  if(player.repairProgress>=5){player.tracks.left=player.tracks.right=true;player.turretDisabled=false;player.engineDisabled=false;player.repairProgress=0;$('status').textContent='Repairs complete — mobility, turret, and cannon restored.'}
+ }
+}
+function updateNPCRepair(t,dt){
+ if(t.hp<=0||t.tracks.left&&t.tracks.right&&!t.engineDisabled&&!t.turretDisabled)return;
+ t.repairProgress+=dt;
+ if(t.repairProgress>=5){t.tracks.left=t.tracks.right=true;t.engineDisabled=t.turretDisabled=false;t.repairProgress=0}
+}
+function moduleLabel(t){return t.engineDisabled?'ENGINE DISABLED':t.turretDisabled?'TURRET DISABLED':!t.tracks.left||!t.tracks.right?'TRACK DISABLED':''}
+function update(dt){if(!playing||paused)return;if(player.hp<=0){destroyTank(player);end(false);return}
+ roundRemaining=Math.max(0,roundRemaining-dt);
+ if(roundRemaining>0){reinforcementTimer+=dt;while(reinforcementTimer>=10){reinforcementTimer-=10;spawnReinforcements()}}
+ follow();elapsed+=dt;
+ for(const puff of muzzleSmoke){puff.age+=dt;puff.x+=puff.vx*dt;puff.y+=puff.vy*dt;puff.height+=puff.vz*dt;puff.vx*=Math.exp(-dt*1.5);puff.vy*=Math.exp(-dt*1.5)}
+ muzzleSmoke=muzzleSmoke.filter(puff=>puff.age<puff.life);
+player.cd=Math.max(0,player.cd-dt);player.mgCooldown=Math.max(0,player.mgCooldown-dt);updateTrackRepair(dt);const mobile=player.tracks.left&&player.tracks.right&&!player.engineDisabled;const steering=Number(keys.has('d')||keys.has('arrowright'))-Number(keys.has('a')||keys.has('arrowleft'));if(mobile){turnHull(player,player.angle+steering*player.stats.turn*dt);drivePlayer((Number(keys.has('w')||keys.has('arrowup'))*player.stats.speed-Number(keys.has('s')||keys.has('arrowdown'))*player.stats.reverse)*(1+.15*garage.engine),dt);}else player.speed=0;
+if(!player.turretDisabled&&!player.engineDisabled){
+ if(mouseAim)player.turretTarget=Math.atan2(pointer.y-player.y,pointer.x-player.x);
+ if(keys.has('q')||keys.has('e')){mouseAim=false;player.turretTarget+=(Number(keys.has('e'))-Number(keys.has('q')))*turretTurnRate(player)*dt}
+ player.turret=turn(player.turret,player.turretTarget,turretTurnRate(player)*dt);
+}
+if(!player.turretDisabled&&!player.engineDisabled)adjustElevation((Number(keys.has('t'))-Number(keys.has('g')))*.45*dt);if(firing||keys.has('c'))fire(player);if(keys.has(' '))fireMachineGun();
+if(Math.abs(player.x-depot.x)<120&&Math.abs(player.y-depot.y)<130)player.hp=Math.min(player.max,player.hp+5*dt);
+const near=[player,...allies.filter(t=>t.hp>0)].some(t=>Math.hypot(t.x-outpost.x,t.y-outpost.y)<90),contested=enemies.some(t=>t.hp>0&&Math.hypot(t.x-outpost.x,t.y-outpost.y)<105);if(near&&!contested)capture=Math.min(100,capture+10*dt);
 for(const [i,t] of allies.entries()){
- if(t.hp<=0)continue;t.cd=Math.max(0,t.cd-dt);
+ if(t.hp<=0)continue;updateNPCRepair(t,dt);t.cd=Math.max(0,t.cd-dt);
  const target=enemies.filter(e=>e.hp>0).sort((a,b)=>Math.hypot(a.x-t.x,a.y-t.y)-Math.hypot(b.x-t.x,b.y-t.y))[0];
  const fighting=target&&Math.hypot(target.x-t.x,target.y-t.y)<600;
- const goal=fighting?target:{x:player.x+(i-1)*80,y:player.y-75};
+ const goal=fighting?target:allyObjective(t,i);t.order=fighting?'ENGAGING':i%3===0&&capture<100?'CAPTURING':i%3===1?'LEFT FLANK':'PATROLLING';
  const distance=Math.hypot(goal.x-t.x,goal.y-t.y),direction=Math.atan2(goal.y-t.y,goal.x-t.x);
- t.turret=turn(t.turret,direction,2.2*dt);
- if(distance>(fighting?210:65)){t.angle=turn(t.angle,direction,1.7*dt);const before=t.x+t.y;move(t,100,dt);if(Math.abs(t.x+t.y-before)<.01)t.angle+=2.8*dt}
+ if(!t.turretDisabled&&!t.engineDisabled)t.turret=turn(t.turret,direction,turretTurnRate(t)*dt);
+ if(distance>(fighting?210:65)){turnHull(t,turn(t.angle,direction,1.7*dt));const before=t.x+t.y;move(t,100,dt);if(Math.abs(t.x+t.y-before)<.01)turnHull(t,t.angle+2.8*dt)}
  if(fighting&&Math.abs(normalize(t.turret-direction))<.12&&lineClear(t,target))fire(t);
 }
-for(const t of enemies){t.cd=Math.max(0,t.cd-dt);const d=Math.hypot(player.x-t.x,player.y-t.y),target=Math.atan2(player.y-t.y,player.x-t.x);t.turret=turn(t.turret,target,1.1*dt);const desired=d>260?target:target+Math.PI/2;t.angle=turn(t.angle,desired,1.15*dt);const before=t.x+t.y;move(t,d>190?65:35,dt);if(Math.abs(t.x+t.y-before)<.01)t.angle+=1.8*dt;if(d<650&&Math.abs(normalize(t.turret-target))<.12&&lineClear(t,player))fire(t)}
-for(const s of shells){const steps=3;for(let i=0;i<steps&&s.life>0;i++){s.x+=s.vx*dt/steps;s.y+=s.vy*dt/steps;s.life-=dt/steps;if(blocked(s.x,s.y,2)){s.life=0;burst(s.x,s.y,'#b8ad89',8);break}for(const t of s.enemy?[player,...allies]:enemies){if(t.hp<=0||Math.hypot(t.x-s.x,t.y-s.y)>t.r)continue;const incoming=Math.atan2(-s.vy,-s.vx),angle=Math.abs(normalize(incoming-t.angle)),damage=angle<.8?18:angle>2.3?55:35;t.hp-=damage;s.life=0;burst(s.x,s.y,'#ffd477',16);if(t.hp<=0){burst(t.x,t.y,'#ff9456',30);wrecks.push({x:t.x,y:t.y,angle:t.angle});if(t.enemy)kills++;else if(t.ally)$('status').textContent=t.name+' was knocked out.'}break}}}
-enemies=enemies.filter(t=>t.hp>0);shells=shells.filter(s=>s.life>0);for(const p of sparks){p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt}sparks=sparks.filter(p=>p.life>0);
-if(player.hp<=0){end(false);return}if(enemies.length===0){if(wave<3){transition+=dt;if(transition>3){wave++;transition=0;spawn()}}else if(capture>=100)end(true);else $('status').textContent='Enemy armor cleared. Move into the center circle to finish capturing.'}
+for(const t of enemies){
+ if(t.hp<=0)continue;updateNPCRepair(t,dt);t.cd=Math.max(0,t.cd-dt);
+ const victim=chooseEnemyTarget(t);if(!victim)continue;
+ const d=Math.hypot(victim.x-t.x,victim.y-t.y),direction=Math.atan2(victim.y-t.y,victim.x-t.x);
+ if(!t.turretDisabled&&!t.engineDisabled)t.turret=turn(t.turret,direction,turretTurnRate(t)*dt);
+ const desired=d>260?direction:direction+Math.PI/2;turnHull(t,turn(t.angle,desired,1.15*dt));
+ const before=t.x+t.y;move(t,d>190?65:35,dt);if(Math.abs(t.x+t.y-before)<.01)turnHull(t,t.angle+1.8*dt);
+ if(d<650&&Math.abs(normalize(t.turret-direction))<.12&&lineClear(t,victim))fire(t,victim);
 }
+for(const s of shells){const steps=Math.max(3,Math.ceil(Math.hypot(s.vx,s.vy)*dt/5));for(let i=0;i<steps&&s.life>0;i++){s.x+=s.vx*dt/steps;s.y+=s.vy*dt/steps;s.height=(s.height??10)+(s.vz??0)*dt/steps;if(s.height<=0){s.life=0;burst(s.x,s.y,'#b8ad89',10);break}s.life-=dt/steps;if(blocked(s.x,s.y,2)){s.life=0;burst(s.x,s.y,'#b8ad89',8);break}for(const t of s.enemy?[player,...allies]:enemies){if(t.hp<=0)continue;const part=tankHitPart(t,s.x,s.y,s.height??10);if(!part)continue;if(s.machineGun){t.hp-=2;s.life=0;burst(s.x,s.y,'#e6d499',3);if(t.hp<=0)destroyTank(t);recordHitCamera(s,t,'hull',2);break}if(part==='ammo'){s.life=0;detonateAmmo(t);recordHitCamera(s,t,part);break}if(part!=='hull'){if(part==='engine')damageEngine(t);else if(part==='turret')damageTurret(t);else damageTrack(part,t);s.life=0;burst(s.x,s.y,'#ffb65c',14);recordHitCamera(s,t,part);break}const incoming=Math.atan2(-s.vy,-s.vx),angle=Math.abs(normalize(incoming-t.angle)),damage=angle<.8?18:angle>2.3?55:35;t.hp-=damage*(s.damageMultiplier??1);s.life=0;burst(s.x,s.y,'#ffd477',16);if(t.hp<=0)destroyTank(t);recordHitCamera(s,t,part,damage*(s.damageMultiplier??1));break}}}
+enemies=enemies.filter(t=>t.hp>0);shells=shells.filter(s=>s.life>0);for(const p of sparks){p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt}sparks=sparks.filter(p=>p.life>0);
+if(player.hp<=0){destroyTank(player);end(false);return}
+if(roundRemaining<=0){
+ if(wave>=3){end(true);return}
+ wave++;roundRemaining=ROUND_DURATION;reinforcementTimer=0;enemies=[];loadNextMap();
+ player.x=depot.x;player.y=depot.y;player.angle=player.turret=player.turretTarget=-Math.PI/2;player.speed=0;
+ for(const t of allies)if(t.hp>0){const spot=findReinforcementSpot(depot.x,depot.y);t.x=spot?.x??depot.x;t.y=spot?.y??depot.y;t.angle=t.turret=t.turretTarget=-Math.PI/2}
+ shells=[];sparks=[];muzzleSmoke=[];wrecks=[];capture=0;keys.clear();firing=false;spawn();
+}
+}
+
 function drawTank(t){ctx.save();ctx.translate(t.x,t.y);ctx.rotate(t.angle);ctx.fillStyle='#121b17';ctx.fillRect(-25,-25,51,12);ctx.fillRect(-25,13,51,12);ctx.strokeStyle='#65705b';ctx.lineWidth=2;for(let x=-22;x<25;x+=7){ctx.beginPath();ctx.moveTo(x,-24);ctx.lineTo(x,-14);ctx.moveTo(x,14);ctx.lineTo(x,24);ctx.stroke()}ctx.fillStyle=t.enemy?'#8f6655':t.ally?'#638e94':'#899b67';ctx.fillRect(-23,-15,47,30);ctx.fillStyle=t.enemy?'#a98268':'#a7b37a';ctx.fillRect(5,-12,16,24);ctx.fillStyle='#394334';ctx.fillRect(-18,-10,14,20);ctx.restore();ctx.save();ctx.translate(t.x,t.y);ctx.rotate(t.turret);ctx.fillStyle=t.enemy?'#b18a69':t.ally?'#87cbd1':'#bbc38c';ctx.fillRect(0,-4,39,8);ctx.fillStyle=t.enemy?'#76584b':'#7b8d5c';ctx.beginPath();ctx.ellipse(-1,0,16,13,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#3b4232';ctx.beginPath();ctx.arc(-4,-2,6,0,Math.PI*2);ctx.fill();ctx.restore();ctx.fillStyle='#19201a';ctx.fillRect(t.x-24,t.y-38,48,5);ctx.fillStyle=t.enemy?'#eaa07b':'#b6df83';ctx.fillRect(t.x-24,t.y-38,48*Math.max(0,t.hp/t.max),5);if(t.ally){ctx.fillStyle='#c1f3f5';ctx.font='bold 10px monospace';ctx.textAlign='center';ctx.fillText(t.name,t.x,t.y-46);ctx.textAlign='left'}}
 // Project solid tank parts from world space so hull and turret turn independently.
-function drawAlly3D(t,view,px,py,projection,horizon,depth){
+function drawTank3D(t,view,px,py,projection,horizon,depth,renderCtx=ctx,width=VW,eyeHeight=23){
+ const ctx=renderCtx;
  const faces=[],cos=Math.cos(view),sin=Math.sin(view);
- function box(cx,cy,length,width,base,height,angle,colors){
+ function box(cx,cy,length,width,base,height,angle,colors,pitch=0){
   const ca=Math.cos(angle),sa=Math.sin(angle);
   const vertices=[];
   for(const z of [base,base+height])for(const [x,y] of [[-length/2,-width/2],[length/2,-width/2],[length/2,width/2],[-length/2,width/2]]){
    const dx=cx+x*ca-y*sa-px,dy=cy+x*sa+y*ca-py;
-   vertices.push({side:-dx*sin+dy*cos,z:dx*cos+dy*sin,height:z});
+   vertices.push({side:-dx*sin+dy*cos,z:dx*cos+dy*sin,height:z+x*Math.tan(pitch)+(t.groundHeight||0)});
   }
   for(const [indices,color] of [[[0,1,5,4],colors[0]],[[1,2,6,5],colors[1]],[[2,3,7,6],colors[2]],[[3,0,4,7],colors[1]],[[4,5,6,7],colors[3]]]){
    let points=indices.map(i=>vertices[i]),clipped=[];
@@ -63,61 +427,234 @@ function drawAlly3D(t,view,px,py,projection,horizon,depth){
    if(clipped.length>=3)faces.push({points:clipped,color,distance:points.reduce((sum,p)=>sum+p.z,0)/points.length});
   }
  }
- function part(forward,side,length,width,base,height,angle,colors){box(t.x+Math.cos(angle)*forward-Math.sin(angle)*side,t.y+Math.sin(angle)*forward+Math.cos(angle)*side,length,width,base,height,angle,colors)}
- const track=['#202a29','#303b39','#182220','#46514b'],armor=['#527d83','#3e626b','#456e75','#87b3b5'];
- for(const side of [-21,21]){
-  part(0,side,60,12,0,16,t.angle,track);
-  for(let x=-24;x<=24;x+=8)part(x,side,2,13,15,2,t.angle,['#53615a','#394940','#35463e','#738279']);
+ function part(forward,side,length,width,base,height,angle,colors,pitch=0){box(t.x+Math.cos(angle)*forward-Math.sin(angle)*side,t.y+Math.sin(angle)*forward+Math.cos(angle)*side,length,width,base,height,angle,colors,pitch)}
+ // Shaped meshes share the same projection, lighting palette, and depth sorting.
+ function shapedPart(forward,side,length,width,base,height,angle,colors,style,pitch=0){
+  const ca=Math.cos(angle),sa=Math.sin(angle),cx=t.x+ca*forward-sa*side,cy=t.y+sa*forward+ca*side;
+  let rings=[];
+  if(style==='track'){
+   const section=Array.from({length:16},(_,i)=>{const a=i*Math.PI/8;return[Math.cos(a)*(length/2-height/2)+(Math.cos(a)>=0?1:-1)*height*.18,Math.sin(a)*height/2+height/2]});
+   rings=[-width/2,width/2].map(y=>section.map(([x,z])=>[x,y,base+z]));
+  }else if(style==='tube'){
+   rings=[-length/2,length/2].map(x=>Array.from({length:12},(_,i)=>{const a=i*Math.PI/6;return[x,Math.cos(a)*width/2,base+height/2+Math.sin(a)*height/2]}));
+  }else{
+   const n=style==='rounded'?16:8;
+   const outline=style==='rounded'?Array.from({length:n},(_,i)=>[Math.cos(i*Math.PI*2/n)*length/2,Math.sin(i*Math.PI*2/n)*width/2]):[[-.5,-.3],[-.34,-.5],[.3,-.5],[.5,-.28],[.5,.28],[.3,.5],[-.34,.5],[-.5,.3]].map(([x,y])=>[x*length,y*width]);
+   rings=[0,1].map(layer=>outline.map(([x,y])=>[x*(layer?(style==='wedge'?.6:.76):1)+(layer&&style==='wedge'?-length*.08:0),y*(layer?(style==='wedge'?.66:.78):1),base+height*layer]));
+  }
+  const n=rings[0].length,vertices=rings.flat().map(([x,y,z])=>{const dx=cx+x*ca-y*sa-px,dy=cy+x*sa+y*ca-py;return{side:-dx*sin+dy*cos,z:dx*cos+dy*sin,height:z+x*Math.tan(pitch)+(t.groundHeight||0)}});
+  const polygons=[];for(let i=0;i<n;i++)polygons.push({ids:[i,(i+1)%n,(i+1)%n+n,i+n],color:colors[i%3]});
+  polygons.push({ids:Array.from({length:n},(_,i)=>i),color:colors[1]},{ids:Array.from({length:n},(_,i)=>i+n),color:colors[3]});
+  for(const polygon of polygons){const points=polygon.ids.map(i=>vertices[i]),clipped=[];
+   for(let i=0;i<points.length;i++){const a=points[i],b=points[(i+1)%points.length];if(a.z>=8)clipped.push(a);if((a.z>=8)!==(b.z>=8)){const k=(8-a.z)/(b.z-a.z);clipped.push({side:a.side+(b.side-a.side)*k,z:8,height:a.height+(b.height-a.height)*k})}}
+   if(clipped.length>=3)faces.push({points:clipped,color:polygon.color,distance:points.reduce((sum,p)=>sum+p.z,0)/points.length});
+  }
  }
- part(0,0,54,34,9,16,t.angle,armor);
- part(16,0,17,32,25,4,t.angle,['#689299','#557b82','#557b82','#a2c4c3']);
- part(-16,0,16,26,25,2,t.angle,track);
- part(-2,0,27,25,26,14,t.turret,armor);
- part(-6,-3,10,10,40,3,t.turret,track);
- part(29,0,44,5,32,5,t.turret,['#729a9e','#4d747a','#4d747a','#b2d1cf']);
- part(52,0,7,8,31,7,t.turret,track);
- // A bright identification stripe remains visible on the turret roof.
- part(0,0,4,24,40,1,t.turret,['#bdecee','#8abec2','#8abec2','#d3f6f3']);
+ const model=tankModels[t.type]||tankModels.medium,kind=tankTypes[t.type]?.class||'medium';
+ const track=['#202a29','#303b39','#182220','#46514b'],armor=t.enemy?['#91664f','#6c493b','#805641','#bf9571']:model.color;
+ const L=model.length,W=model.width,roof=9+model.hullHeight,top=roof+model.turretHeight,gunHeight=roof+model.turretHeight*.5;
+ for(const side of [-W/2,W/2]){
+  shapedPart(0,side,L,12,0,16,t.angle,track,'track');
+  for(let x=-L/2+4;x<L/2;x+=8)part(x,side,2,13,15,2,t.angle,['#53615a','#394940','#35463e','#738279']);
+ }
+ shapedPart(0,0,L-6,W-8,9,model.hullHeight,t.angle,armor,model.hullStyle||'sloped');
+ shapedPart(L*.27,0,L*.28,W-10,roof-3,4,t.angle,armor,'sloped');
+ part(-L*.27,0,L*.26,W-16,roof,2,t.angle,track);
+ shapedPart(-2,0,model.turretLength,model.turretWidth,roof+1,model.turretHeight,t.turret,armor,model.turretStyle==='open'?'sloped':model.turretStyle||'rounded');
+ shapedPart(-6,-3,10,10,top+1,3,t.turret,track,'rounded');
+ if(model.detail==='skirts')for(const side of [-W/2,W/2])shapedPart(0,side,L-10,4,8,13,t.angle,armor,'sloped');
+ if(model.detail==='cupola')shapedPart(-6,-5,12,12,top+1,7,t.turret,armor,'rounded');
+ if(model.detail==='stowage'){part(-L*.37,0,10,W-16,roof+1,7,t.angle,track);for(const side of [-W*.35,W*.35])part(4,side,18,3,roof-5,6,t.angle,track)}
+ if(model.detail==='open'){shapedPart(-2,0,model.turretLength*.72,model.turretWidth*.7,top+.4,1,t.turret,track,'sloped');part(-9,0,3,model.turretWidth*.6,top+1,4,t.turret,armor)}
+ if(model.detail==='casemate')shapedPart(-8,0,model.turretLength*.7,model.turretWidth*.8,top-3,5,t.turret,armor,'wedge');
+ if(model.detail==='tall')part(-model.turretLength*.3,0,4,model.turretWidth-5,roof+2,model.turretHeight-2,t.turret,track);
+
+ const pitch=t.elevation||0,gunStart=model.turretLength*.35,barrelLength=model.barrel*Math.cos(pitch),gunEnd=gunStart+barrelLength;
+ shapedPart(gunStart+barrelLength/2,0,barrelLength,kind==='heavy'?8:5,gunHeight+Math.sin(pitch)*model.barrel/2,5,t.turret,armor,'tube',pitch);
+ part(gunEnd,0,kind==='heavy'?10:7,kind==='heavy'?12:8,gunHeight+Math.sin(pitch)*model.barrel-1,7,t.turret,track,pitch);
+ shapedPart(17,model.turretWidth/2+3,18,2,gunHeight,2,t.turret,track,'tube',pitch);
+ if(kind==='scout')part(-10,8,2,2,top+2,19,t.turret,track);
+ if(kind==='heavy')for(const side of [-W/2,W/2])part(0,side,L-8,3,13,12,t.angle,armor);
+ if(kind==='destroyer')part(-L*.3,0,14,24,roof+2,6,t.angle,armor);
+ // Team-colored roof stripe identifies allegiance independently of model color.
+ part(0,0,4,model.turretWidth-1,top+1,1,t.turret,t.enemy?['#d48668','#a95543','#a95543','#f0b08b']:['#bdecee','#8abec2','#8abec2','#d3f6f3']);
  faces.sort((a,b)=>b.distance-a.distance);
  ctx.save();ctx.beginPath();
- for(let x=0;x<canvas.width;x+=3)if(t.z<depth[x]+60)ctx.rect(x,0,3,canvas.height);
+ for(let x=0;x<width;x++)if(t.z<depth[x]+60)ctx.rect(x,0,1,VH);
  ctx.clip();
- for(const face of faces){ctx.beginPath();face.points.forEach((p,i)=>{const x=canvas.width/2+p.side*projection/p.z,y=horizon+(23-p.height)*projection/p.z;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)});ctx.closePath();ctx.fillStyle=face.color;ctx.fill();ctx.strokeStyle='#182e3244';ctx.lineWidth=.6;ctx.stroke()}
+ for(const face of faces){ctx.beginPath();face.points.forEach((p,i)=>{const x=width/2+p.side*projection/p.z,y=horizon+(eyeHeight-p.height)*projection/p.z;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)});ctx.closePath();ctx.fillStyle=face.color;ctx.fill();ctx.strokeStyle='#182e3244';ctx.lineWidth=.6;ctx.stroke()}
  ctx.restore();
 }
+function resizeBattleCanvas(){
+ const bounds=canvas.getBoundingClientRect(),ratio=Math.min(window.devicePixelRatio||1,2);
+ const width=Math.max(1,Math.round(bounds.width*ratio)),height=Math.max(1,Math.round(bounds.width*VH/VW*ratio));
+ if(canvas.width!==width||canvas.height!==height){canvas.width=width;canvas.height=height}
+ ctx.setTransform(width/VW,0,0,height/VH,0,0);ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+}
+function isAiming(){return playing&&!paused&&!!player&&!player.engineDisabled&&!player.turretDisabled&&keys.has('shift')}
 function draw(){
- const vw=canvas.width,vh=canvas.height,horizon=vh*.43,projection=vw*.78;
- const view=player?.turret??-Math.PI/2,px=player?.x??W/2,py=player?.y??H-90;
+ resizeBattleCanvas();ctx.globalAlpha=1;ctx.shadowBlur=0;ctx.lineWidth=1;
+ const aiming=isAiming(),vw=VW,vh=VH,horizon=vh*(aiming?.28:.32),projection=vw*(aiming?1.35:.78),eyeHeight=(aiming?78:60)+terrainHeight(player?.x??W/2,player?.y??H-90),chaseDistance=aiming?500:290;
+ const view=player?.turret??-Math.PI/2;
+ // An elevated chase camera keeps every tank class fully in frame.
+ const px=(player?.x??W/2)-Math.cos(view)*chaseDistance,py=(player?.y??H-90)-Math.sin(view)*chaseDistance;
  const sky=ctx.createLinearGradient(0,0,0,horizon);sky.addColorStop(0,'#8eacb2');sky.addColorStop(1,'#d3d5bd');ctx.fillStyle=sky;ctx.fillRect(0,0,vw,horizon);
  const ground=ctx.createLinearGradient(0,horizon,0,vh);ground.addColorStop(0,'#788064');ground.addColorStop(1,'#384431');ctx.fillStyle=ground;ctx.fillRect(0,horizon,vw,vh-horizon);
+ // Vector terrain boundaries stay smooth at every display resolution.
+ const cv=Math.cos(view),sv=Math.sin(view),map=battlefields[currentMap];
+ function groundPatch(points,color){
+  let vertices=points.map(([x,y,height])=>{const dx=x-px,dy=y-py;return{z:dx*cv+dy*sv,side:-dx*sv+dy*cv,height:height??terrainHeight(x,y)}}),clipped=[];
+  const near=12;
+  for(let i=0;i<vertices.length;i++){
+   const a=vertices[i],b=vertices[(i+1)%vertices.length];if(a.z>=near)clipped.push(a);
+   if((a.z>=near)!==(b.z>=near)){const t=(near-a.z)/(b.z-a.z);clipped.push({z:near,side:a.side+(b.side-a.side)*t,height:a.height+(b.height-a.height)*t})}
+  }
+  if(clipped.length<3)return;ctx.fillStyle=color;ctx.beginPath();clipped.forEach((p,i)=>{const x=vw/2+p.side*projection/p.z,y=horizon+(eyeHeight-p.height)*projection/p.z;if(i)ctx.lineTo(x,y);else ctx.moveTo(x,y)});ctx.closePath();ctx.fill();
+ }
+ function ellipsePatch(x,y,rx,ry,color){groundPatch(Array.from({length:128},(_,i)=>{const angle=i*Math.PI/64;return[x+Math.cos(angle)*rx,y+Math.sin(angle)*ry]}),color)}
+ groundPatch([[0,0],[W,0],[W,H],[0,H]],terrainTypes.grass.color);
+ ellipsePatch(...map.rock,900,450,terrainTypes.rock.color);
+ ellipsePatch(map.forest[2],map.forest[3],650,600,terrainTypes.forest.color);
+ ellipsePatch(map.forest[0],map.forest[1],800,1000,terrainTypes.forest.color);
+ ellipsePatch(...map.mud,650,500,terrainTypes.mud.color);
+ groundPatch([[outpost.x-85,0],[outpost.x+85,0],[outpost.x+85,H],[outpost.x-85,H]],terrainTypes.road.color);
+ groundPatch([[0,outpost.y-75],[W,outpost.y-75],[W,outpost.y+75],[0,outpost.y+75]],terrainTypes.road.color);
+ const hillFaces=cachedHillFaces.map(face=>({...face,z:(face.cx-px)*cv+(face.cy-py)*sv})).filter(face=>face.z>-800);
+ hillFaces.sort((a,b)=>b.z-a.z);for(const face of hillFaces)groundPatch(face.points,face.color);
  const depth=new Float64Array(vw);
- function rayBox(ox,oy,dx,dy,b){let near=0,far=3000;for(const [o,d,lo,hi] of [[ox,dx,b.x,b.x+b.w],[oy,dy,b.y,b.y+b.h]]){if(Math.abs(d)<1e-8){if(o<lo||o>hi)return null;continue}let a=(lo-o)/d,c=(hi-o)/d;if(a>c)[a,c]=[c,a];near=Math.max(near,a);far=Math.min(far,c);if(near>far)return null}return near>1?near:null}
- for(let x=0;x<vw;x+=3){const offset=Math.atan((x-vw/2)/projection),angle=view+offset,dx=Math.cos(angle),dy=Math.sin(angle);let nearest=2200,building=null;
+ function rayBox(ox,oy,dx,dy,b){let near=0,far=7000;for(const [o,d,lo,hi] of [[ox,dx,b.x,b.x+b.w],[oy,dy,b.y,b.y+b.h]]){if(Math.abs(d)<1e-8){if(o<lo||o>hi)return null;continue}let a=(lo-o)/d,c=(hi-o)/d;if(a>c)[a,c]=[c,a];near=Math.max(near,a);far=Math.min(far,c);if(near>far)return null}return near>1?near:null}
+ for(let x=0;x<vw;x++){const offset=Math.atan((x-vw/2)/projection),angle=view+offset,dx=Math.cos(angle),dy=Math.sin(angle);let nearest=6500,building=null;
  for(const b of cover){const d=rayBox(px,py,dx,dy,b);if(d!==null&&d<nearest){nearest=d;building=b}}
- const distance=Math.max(12,nearest*Math.cos(offset));for(let i=x;i<Math.min(x+3,vw);i++)depth[i]=distance;
- if(building){const bottom=horizon+projection*23/distance,top=horizon-projection*78/distance,impactX=px+dx*nearest,impactY=py+dy*nearest,edge=Math.min(Math.abs(impactX-building.x),Math.abs(impactX-building.x-building.w)),shade=edge<1?'#77796a':'#92917b';ctx.fillStyle=shade;ctx.fillRect(x,top,3,bottom-top);ctx.fillStyle='#484e40';ctx.fillRect(x,top,3,Math.max(2,(bottom-top)*.04));const windowBand=(Math.floor(impactX/22)+Math.floor(impactY/22))%3===0;if(windowBand){ctx.fillStyle='#434c45';ctx.fillRect(x,top+(bottom-top)*.36,3,(bottom-top)*.2)}}
+ const distance=Math.max(12,nearest*Math.cos(offset));depth[x]=distance;
+ if(building){const bottom=horizon+projection*(eyeHeight-terrainHeight(building.x,building.y))/distance,top=horizon+projection*(eyeHeight-terrainHeight(building.x,building.y)-(building.rock?40:101))/distance,impactX=px+dx*nearest,impactY=py+dy*nearest,edge=Math.min(Math.abs(impactX-building.x),Math.abs(impactX-building.x-building.w)),shade=building.rock?'#666b60':edge<1?'#77796a':'#92917b';ctx.fillStyle=shade;ctx.fillRect(x,top,1,bottom-top);ctx.fillStyle='#484e40';ctx.fillRect(x,top,1,Math.max(2,(bottom-top)*.04));const windowBand=(Math.floor(impactX/22)+Math.floor(impactY/22))%3===0;if(windowBand&&!building.rock){ctx.fillStyle='#434c45';ctx.fillRect(x,top+(bottom-top)*.36,1,(bottom-top)*.2)}}
  }
  function project(x,y){const dx=x-px,dy=y-py;return{z:dx*Math.cos(view)+dy*Math.sin(view),side:-dx*Math.sin(view)+dy*Math.cos(view)}}
- const targets=[...enemies,...allies.filter(t=>t.hp>0)].map(t=>({...t,...project(t.x,t.y)})).filter(t=>t.z>18).sort((a,b)=>b.z-a.z);
- for(const t of targets){const sx=vw/2+t.side*projection/t.z,scale=projection/t.z,bottom=horizon+23*scale;if(sx+80*scale<0||sx-80*scale>vw)continue;
- if(t.ally){drawAlly3D(t,view,px,py,projection,horizon,depth)}else{
- ctx.save();ctx.beginPath();for(let x=Math.max(0,Math.floor(sx-36*scale));x<Math.min(vw,sx+36*scale);x+=3)if(t.z<depth[x]+18)ctx.rect(x,0,3,vh);ctx.clip();ctx.translate(sx,bottom);ctx.scale(scale,scale);
- ctx.fillStyle='#20281f';ctx.fillRect(-31,-23,15,23);ctx.fillRect(16,-23,15,23);ctx.fillStyle=t.ally?'#678d91':'#8b7560';ctx.beginPath();ctx.moveTo(-28,-25);ctx.lineTo(-18,-38);ctx.lineTo(18,-38);ctx.lineTo(28,-25);ctx.lineTo(26,-8);ctx.lineTo(-26,-8);ctx.closePath();ctx.fill();ctx.fillStyle=t.ally?'#9bc5c6':'#a7977b';ctx.fillRect(-15,-47,30,16);ctx.fillStyle='#343e32';ctx.fillRect(-4,-40,8,28);ctx.fillStyle='#d6d6b3';ctx.fillRect(-22,-20,5,4);ctx.fillRect(17,-20,5,4);ctx.restore();}
- if(t.z<850){ctx.textAlign='center';ctx.font='bold 11px monospace';ctx.fillStyle=t.ally?'#b4edf1':'#ffd0a4';ctx.fillText((t.ally?t.name:'ENEMY')+' · '+Math.round(t.z)+' m',sx,bottom-53*scale-8);ctx.textAlign='left'}
+ // Solid trunks and layered conical foliage rotate in perspective from every angle.
+ const treeFaces=[];
+ function treeFace(points,color){
+  const projected=points.map(([x,y,h])=>({...project(x,y),height:h})),clipped=[];
+  for(let i=0;i<projected.length;i++){const a=projected[i],b=projected[(i+1)%projected.length];if(a.z>=8)clipped.push(a);if((a.z>=8)!==(b.z>=8)){const k=(8-a.z)/(b.z-a.z);clipped.push({z:8,side:a.side+(b.side-a.side)*k,height:a.height+(b.height-a.height)*k})}}
+  if(clipped.length<3)return;
+  const screen=clipped.map(p=>({x:vw/2+p.side*projection/p.z,y:horizon+(eyeHeight-p.height)*projection/p.z}));
+  const minX=Math.max(0,Math.floor(Math.min(...screen.map(p=>p.x)))),maxX=Math.min(vw,Math.ceil(Math.max(...screen.map(p=>p.x)))),minY=Math.min(...screen.map(p=>p.y)),maxY=Math.max(...screen.map(p=>p.y));
+  if(minX>=maxX||maxY<0||minY>vh)return;
+  treeFaces.push({points:clipped,screen,color,z:clipped.reduce((v,p)=>v+p.z,0)/clipped.length,minX,maxX,minY,maxY});
  }
- const objective=project(W>1500?1200:560,W>1500?800:325);if(objective.z>10){const x=vw/2+objective.side*projection/objective.z;if(x>90&&x<vw-90){ctx.fillStyle='#f3d788';ctx.font='bold 16px monospace';ctx.textAlign='center';ctx.fillText('◇ A · '+Math.round(objective.z)+' m',x,horizon-65);ctx.textAlign='left'}}
- // Steel viewport surround and interior control console.
- ctx.fillStyle='#17201d';ctx.fillRect(0,0,vw,40);ctx.fillRect(0,0,65,vh);ctx.fillRect(vw-65,0,65,vh);ctx.fillRect(0,vh-130,vw,130);ctx.fillStyle='#303b32';ctx.fillRect(65,40,vw-130,9);ctx.fillRect(65,vh-139,vw-130,9);
- for(let x=22;x<vw;x+=90){ctx.fillStyle='#5c6556';ctx.beginPath();ctx.arc(x,22,4,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(x,vh-24,4,0,Math.PI*2);ctx.fill()}
- const ready=player&&player.cd<=0,color=ready?'#bfff9b':'#ffc173';ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(vw/2,horizon,19,0,Math.PI*2);ctx.moveTo(vw/2-65,horizon);ctx.lineTo(vw/2-9,horizon);ctx.moveTo(vw/2+9,horizon);ctx.lineTo(vw/2+65,horizon);ctx.moveTo(vw/2,horizon-40);ctx.lineTo(vw/2,horizon-10);ctx.moveTo(vw/2,horizon+10);ctx.lineTo(vw/2,horizon+60);ctx.stroke();ctx.fillStyle=color;ctx.fillRect(vw/2-2,horizon-2,4,4);
- ctx.font='12px monospace';ctx.fillText(ready?'GUN READY':'RELOADING '+(player?.cd??0).toFixed(1)+'s',vw/2+33,horizon+34);ctx.fillStyle='#bdc6ad';ctx.fillText('GUNNER OPTICS / FIRST PERSON',90,25);
- ctx.fillStyle='#0c1510';ctx.fillRect(90,vh-108,230,70);ctx.fillRect(vw-320,vh-108,230,70);ctx.fillStyle='#b9d18f';ctx.font='13px monospace';ctx.fillText('ARMOR  '+Math.max(0,Math.ceil(player?.hp??100))+'%',107,vh-81);ctx.fillText('CAPTURE  '+Math.floor(capture)+'%',107,vh-57);ctx.fillText('WAVE '+wave+'   KILLS '+kills,vw-302,vh-81);ctx.fillText('HULL '+Math.round(((player?.angle??0)*180/Math.PI+360)%360)+'°',vw-302,vh-57);ctx.fillStyle='#d8c99f';ctx.textAlign='center';ctx.fillText('STEEL FRONT',vw/2,vh-78);ctx.fillStyle='#8d9a82';ctx.fillText('W/S DRIVE · A/D HULL · Q/E TURRET',vw/2,vh-53);ctx.textAlign='left';
- $('hp').textContent=Math.max(0,Math.ceil(player?.hp??100));$('kills').textContent=kills;$('wave').textContent=wave;$('reload').textContent=ready?'READY':(player?.cd??0).toFixed(1)+' s';$('capture').textContent=Math.floor(capture)+'%';if(paused){ctx.fillStyle='#0e150eaa';ctx.fillRect(0,0,vw,vh);ctx.fillStyle='#eeeade';ctx.font='bold 40px system-ui';ctx.textAlign='center';ctx.fillText('PAUSED',vw/2,vh/2);ctx.textAlign='left'}
+ for(const tree of trees){const p=project(tree.x,tree.y);if(p.z<35||Math.abs(p.side)>p.z*1.5)continue;const base=terrainHeight(tree.x,tree.y),height=85+tree.r*5;
+  for(let i=0;i<10;i++){const a=i*Math.PI/5,b=(i+1)*Math.PI/5,point=(r,angle,h)=>[tree.x+Math.cos(angle)*r,tree.y+Math.sin(angle)*r,base+h];
+   treeFace([point(5,a,0),point(5,b,0),point(5,b,55),point(5,a,55)],i%2?'#65503b':'#473929');
+   for(let tier=0;tier<3;tier++)treeFace([point(30-tier*7,a,30+tier*20),point(30-tier*7,b,30+tier*20),[tree.x,tree.y,base+height-tier*5]],['#365d3d','#2c5037','#416d43','#24432f'][i%4]);
+  }
+ }
+ treeFaces.sort((a,b)=>b.z-a.z);
+ for(const face of treeFaces){
+  ctx.save();ctx.beginPath();let run=-1;
+  for(let x=face.minX;x<=face.maxX;x++){const visible=x<face.maxX&&face.z<depth[x]+12;if(visible&&run<0)run=x;if(!visible&&run>=0){ctx.rect(run,0,x-run,vh);run=-1}}
+  ctx.clip();ctx.fillStyle=face.color;ctx.beginPath();face.screen.forEach((p,i)=>{if(i)ctx.lineTo(p.x,p.y);else ctx.moveTo(p.x,p.y)});ctx.closePath();ctx.fill();ctx.restore();
+ }
+ function clipBehindTrees(distance,minX=0,maxX=vw,minY=0,maxY=vh){
+  for(const face of treeFaces){
+   if(face.z>=distance-3||face.maxX<minX||face.minX>maxX||face.maxY<minY||face.minY>maxY)continue;
+   ctx.beginPath();ctx.rect(0,0,vw,vh);face.screen.forEach((p,i)=>{if(i)ctx.lineTo(p.x,p.y);else ctx.moveTo(p.x,p.y)});ctx.closePath();ctx.clip('evenodd');
+  }
+ }
+ const targets=[...enemies,...allies.filter(t=>t.hp>0)].map(t=>({...t,groundHeight:terrainHeight(t.x,t.y),...project(t.x,t.y)})).filter(t=>t.z>18).sort((a,b)=>b.z-a.z);
+ for(const t of targets){const sx=vw/2+t.side*projection/t.z,scale=projection/t.z,bottom=horizon+(eyeHeight-terrainHeight(t.x,t.y))*scale;if(sx+120*scale<0||sx-120*scale>vw)continue;
+ ctx.save();clipBehindTrees(t.z,sx-120*scale,sx+120*scale,bottom-95*scale,bottom+5);drawTank3D(t,view,px,py,projection,horizon,depth,ctx,vw,eyeHeight);
+ if(t.z<850){ctx.textAlign='center';ctx.font='bold 11px monospace';ctx.fillStyle=t.ally?'#b4edf1':'#ffd0a4';ctx.fillText((t.ally?t.name+' · '+(t.order||'ADVANCING'):'ENEMY')+(moduleLabel(t)?' · '+moduleLabel(t):'')+' / '+(tankTypes[t.type]?.name.split(' · ')[1]||'Medium')+' · '+Math.round(t.z)+' m',sx,bottom-53*scale-8);ctx.textAlign='left'}
+ ctx.restore();
+ }
+ // Glowing shell tracers use the same perspective and wall depth as the battlefield.
+ ctx.save();ctx.lineCap='round';
+ for(const s of shells){
+  const head=project(s.x,s.y);if(head.z<=8)continue;ctx.save();
+  const trailTime=s.machineGun?.025:s.enemy?.16:s.ally?.14:.065;
+  const tail=project(s.x-s.vx*trailTime,s.y-s.vy*trailTime);
+  if(tail.z<8){const k=(head.z-8)/(head.z-tail.z);tail.side=head.side+(tail.side-head.side)*k;tail.z=8}
+  const hx=vw/2+head.side*projection/head.z,hy=horizon+(eyeHeight-terrainHeight(s.x,s.y)-(s.height??32))*projection/head.z;
+  const tx=vw/2+tail.side*projection/tail.z,ty=horizon+(eyeHeight-terrainHeight(s.x,s.y)-(s.height??32))*projection/tail.z;
+  clipBehindTrees(head.z,Math.min(hx,tx)-10,Math.max(hx,tx)+10,Math.min(hy,ty)-10,Math.max(hy,ty)+10);
+  ctx.strokeStyle=s.enemy?'#ff6138':s.ally?'#75eeff':'#ffe394';ctx.shadowColor=ctx.strokeStyle;ctx.shadowBlur=s.enemy||s.ally?22:12;
+  ctx.lineWidth=s.machineGun?1:Math.max(s.enemy||s.ally?3:2,Math.min(s.enemy||s.ally?9:7,projection*(s.enemy||s.ally?1.8:1.2)/head.z));
+  // Short segments let buildings hide only the obscured portion of a tracer.
+  for(let i=0;i<12;i++){
+   const a=i/12,b=(i+1)/12,m=(a+b)/2,x=tx+(hx-tx)*m;
+   const z=1/((1-m)/tail.z+m/head.z);
+   if(x<0||x>=vw||z>depth[Math.floor(x)]+2)continue;
+   ctx.globalAlpha=.25+.75*m;ctx.beginPath();ctx.moveTo(tx+(hx-tx)*a,ty+(hy-ty)*a);ctx.lineTo(tx+(hx-tx)*b,ty+(hy-ty)*b);ctx.stroke();
+  }
+  if(hx>=0&&hx<vw&&head.z<=depth[Math.floor(hx)]+2){ctx.globalAlpha=1;const radius=s.machineGun?1.2:Math.max(s.enemy||s.ally?4:2,Math.min(s.enemy||s.ally?7:5,projection/head.z));ctx.fillStyle=s.enemy?'#ff713d':s.ally?'#83f5ff':'#fffbe0';ctx.beginPath();ctx.arc(hx,hy,radius,0,Math.PI*2);ctx.fill();if(s.enemy||s.ally){ctx.fillStyle=s.ally?'#efffff':'#fff5d6';ctx.beginPath();ctx.arc(hx,hy,radius*.45,0,Math.PI*2);ctx.fill()}}
+  ctx.restore();
+ }
+ ctx.shadowBlur=0;
+ // Muzzle flashes and impact sparks make each shot and hit easy to follow.
+ for(const p of sparks){const point=project(p.x,p.y);if(point.z<=8)continue;const x=vw/2+point.side*projection/point.z,y=horizon+(eyeHeight-32)*projection/point.z;if(x<0||x>=vw||point.z>depth[Math.floor(x)]+3)continue;ctx.globalAlpha=Math.min(1,p.life*3);ctx.fillStyle=p.color;const size=Math.max(1,Math.min(7,projection*1.5/point.z));ctx.fillRect(x-size/2,y-size/2,size,size)}
+ ctx.restore();
+ const objective=project(outpost.x,outpost.y);if(objective.z>10){const x=vw/2+objective.side*projection/objective.z;if(x>90&&x<vw-90){ctx.fillStyle='#f3d788';ctx.font='bold 16px monospace';ctx.textAlign='center';ctx.fillText('◇ A · '+Math.round(objective.z)+' m',x,horizon-65);ctx.textAlign='left'}}
+ // Keep the player's tank visible in chase view and hide it through the scope.
+ if(player&&!aiming){ctx.save();clipBehindTrees(chaseDistance,vw/2-220,vw/2+220,250,560);drawTank3D({...player,groundHeight:terrainHeight(player.x,player.y),...project(player.x,player.y)},view,px,py,projection,horizon,new Float64Array(vw).fill(Infinity),ctx,vw,eyeHeight);ctx.restore();}
+ // Soft expanding smoke drifts upward from the actual barrel tip.
+ for(const puff of muzzleSmoke.map(p=>({...p,...project(p.x,p.y)})).filter(p=>p.z>8).sort((a,b)=>b.z-a.z)){
+  const x=vw/2+puff.side*projection/puff.z,y=horizon+(eyeHeight-puff.height)*projection/puff.z,r=Math.max(1,(puff.radius+puff.age*17)*projection/puff.z);
+  if(x+r<0||x-r>vw)continue;
+  ctx.save();clipBehindTrees(puff.z,x-r,x+r,y-r,y+r);ctx.beginPath();for(let col=Math.max(0,Math.floor(x-r));col<Math.min(vw,x+r);col++)if(puff.z<=depth[col]+10)ctx.rect(col,0,1,vh);ctx.clip();
+  ctx.globalAlpha=.5*Math.max(0,1-puff.age/puff.life);
+  const smoke=ctx.createRadialGradient(x-r*.2,y-r*.2,0,x,y,r);smoke.addColorStop(0,'#d4d0c4');smoke.addColorStop(.5,'#aaa99eaa');smoke.addColorStop(1,'#92968b00');ctx.fillStyle=smoke;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();ctx.restore();
+ }
+ // Destruction explosions continue animating after the tank is knocked out.
+ tankBlasts=tankBlasts.filter(blast=>Date.now()-blast.started<1600);
+ for(const blast of tankBlasts){const age=(Date.now()-blast.started)/1600,p=project(blast.x,blast.y);if(p.z<=8)continue;const x=vw/2+p.side*projection/p.z,y=horizon+(eyeHeight-20)*projection/p.z,scale=projection/p.z*(blast.power||1);
+  ctx.save();ctx.globalAlpha=1-age;ctx.strokeStyle='#ffd88b';ctx.lineWidth=Math.max(2,5*scale*(1-age));ctx.beginPath();ctx.ellipse(x,y,(15+age*100)*scale,(8+age*40)*scale,0,0,Math.PI*2);ctx.stroke();
+  for(let i=0;i<9;i++){const angle=i*Math.PI*2/9;ctx.fillStyle=i%2?'#ff8d32':'#ffe0a0';ctx.beginPath();ctx.arc(x+Math.cos(angle)*age*55*scale,y-age*70*scale+Math.sin(angle)*age*30*scale,Math.max(1,(20-age*14)*scale),0,Math.PI*2);ctx.fill()}ctx.restore();
+ }
+ // Compact third-person HUD leaves the hull, tracks, and barrel unobstructed.
+ ctx.fillStyle='#17201de8';ctx.fillRect(0,0,vw,36);ctx.fillRect(0,vh-112,vw,112);
+ const aimY=horizon+(eyeHeight-32)*projection/(chaseDistance+600)-Math.tan(player?.elevation||0)*projection;
+ const ready=player&&!player.turretDisabled&&!player.engineDisabled&&player.cd<=0,color=ready?'#bfff9b':'#ffc173';if(aiming){
+ const sx=vw/2,sy=vh*.44,radius=vh*.355;
+ // Even-odd fill leaves a clear round lens through the dark scope surround.
+ ctx.save();ctx.fillStyle='#030706f5';ctx.beginPath();ctx.rect(0,36,vw,vh-148);ctx.moveTo(sx+radius,sy);ctx.arc(sx,sy,radius,0,Math.PI*2);ctx.fill('evenodd');
+ ctx.strokeStyle='#364239';ctx.lineWidth=9;ctx.beginPath();ctx.arc(sx,sy,radius+4,0,Math.PI*2);ctx.stroke();
+ ctx.strokeStyle='#9da58a';ctx.lineWidth=1;ctx.beginPath();ctx.arc(sx,sy,radius-2,0,Math.PI*2);ctx.stroke();
+ ctx.beginPath();ctx.arc(sx,sy,radius-4,0,Math.PI*2);ctx.clip();
+ const crossY=Math.max(sy-radius+25,Math.min(sy+radius-25,aimY));
+ ctx.strokeStyle='#101b14';ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(sx-radius,crossY);ctx.lineTo(sx-5,crossY);ctx.moveTo(sx+5,crossY);ctx.lineTo(sx+radius,crossY);ctx.moveTo(sx,sy-radius);ctx.lineTo(sx,crossY-5);ctx.moveTo(sx,crossY+5);ctx.lineTo(sx,sy+radius);
+ for(let i=-5;i<=5;i++){if(!i)continue;const offset=i*28;ctx.moveTo(sx+offset,crossY-5);ctx.lineTo(sx+offset,crossY+5);ctx.moveTo(sx-5,crossY+offset);ctx.lineTo(sx+5,crossY+offset)}ctx.stroke();
+ ctx.fillStyle=ready?'#f04b36':'#ffbd69';ctx.beginPath();ctx.arc(sx,crossY,2.5,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle='#c7cfb2';ctx.font='10px monospace';ctx.textAlign='center';ctx.fillText('GUN SIGHT · HOLD SHIFT',sx,sy+radius-22);ctx.textAlign='left';ctx.restore();
+ }else{ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(vw/2,aimY,19,0,Math.PI*2);ctx.moveTo(vw/2-65,aimY);ctx.lineTo(vw/2-9,aimY);ctx.moveTo(vw/2+9,aimY);ctx.lineTo(vw/2+65,aimY);ctx.moveTo(vw/2,aimY-40);ctx.lineTo(vw/2,aimY-10);ctx.moveTo(vw/2,aimY+10);ctx.lineTo(vw/2,aimY+60);ctx.stroke();ctx.fillStyle=color;ctx.fillRect(vw/2-2,aimY-2,4,4);
 }
-let lastAimX=null;
-function aim(e){if(lastAimX!==null&&playing&&!paused&&player){player.turret+=Math.max(-80,Math.min(80,e.clientX-lastAimX))*.006;mouseAim=false}lastAimX=e.clientX}
-canvas.addEventListener('pointerleave',()=>{lastAimX=null});
+ ctx.font='12px monospace';ctx.fillText(player?.engineDisabled?'ENGINE DISABLED':player?.turretDisabled?'TURRET DISABLED':ready?'GUN READY':'RELOADING '+(player?.cd??0).toFixed(1)+'s',vw/2+33,aimY+34);ctx.fillStyle='#bdc6ad';ctx.fillText((aiming?'SCOPE / ':'CHASE CAMERA / ')+(player?tankTypes[player.type].name.toUpperCase():'THIRD PERSON'),90,25);
+ ctx.fillStyle='#0c1510';ctx.fillRect(90,vh-108,230,70);ctx.fillRect(vw-320,vh-108,230,70);ctx.fillStyle='#b9d18f';ctx.font='13px monospace';ctx.fillText('ARMOR  '+Math.max(0,Math.ceil(player?.hp??100))+'%',107,vh-81);ctx.fillText('CAPTURE  '+Math.floor(capture)+'%',107,vh-57);ctx.fillText('WAVE '+wave+'   KILLS '+kills,vw-302,vh-81);ctx.fillText('HULL '+Math.round(((player?.angle??0)*180/Math.PI+360)%360)+'°',vw-302,vh-57);ctx.fillStyle='#d8c99f';ctx.textAlign='center';ctx.fillText('STEEL FRONT',vw/2,vh-78);ctx.fillStyle='#8d9a82';ctx.fillText('W/S DRIVE · A/D HULL · Q/E TURRET',vw/2,vh-53);ctx.textAlign='left';
+ // Tactical map shows terrain, squad, enemies, objective, and the repair depot.
+ const mx=vw-192,my=hitCamera&&elapsed-hitCamera.time<=5?300:48,mw=176,mh=116;
+ ctx.fillStyle='#102017';ctx.fillRect(mx-4,my-4,mw+8,mh+25);
+ for(let y=0;y<mh;y+=4)for(let x=0;x<mw;x+=4){ctx.fillStyle=terrainAt(x/mw*W,y/mh*H).color;ctx.fillRect(mx+x,my+y,4,4)}
+ function mapDot(t,color,size=4){ctx.fillStyle=color;ctx.fillRect(mx+t.x/W*mw-size/2,my+t.y/H*mh-size/2,size,size)}
+ mapDot(outpost,'#ffe394',7);mapDot(depot,'#8fe083',6);for(const t of allies.filter(t=>t.hp>0))mapDot(t,'#85dce5');for(const t of enemies)mapDot(t,'#ff8065');if(player)mapDot(player,'#ffffff',6);
+ ctx.fillStyle='#e5e8d7';ctx.font='10px monospace';ctx.fillText(battlefields[currentMap].name+' · ROUND '+wave,mx,my+mh+15);
+ if(player){ctx.fillStyle='#e5e8d7';ctx.font='12px monospace';ctx.fillText('GUN ELEVATION '+Math.round(player.elevation*180/Math.PI)+'° · T/G UP/DOWN',18,74);const terrain=terrainAt(player.x,player.y);ctx.fillStyle='#e5e8d7';ctx.font='12px monospace';ctx.fillText(terrain.name.toUpperCase()+' · SPEED '+Math.round(terrain.speed*100)+'%',18,55)}
+ drawHitCamera();
+ const disabledTracks=player&&(!player.tracks.left||!player.tracks.right);
+ $('trackStatus').textContent=disabledTracks?(keys.has('r')?'REPAIR '+Math.ceil(5-player.repairProgress)+'s':'DISABLED · HOLD R'):'READY';
+ $('engineStatus').textContent=player?.engineDisabled?(keys.has('r')?'REPAIR '+Math.ceil(5-player.repairProgress)+'s':'DISABLED · HOLD R'):'READY';
+ $('turretStatus').textContent=player?.turretDisabled?(keys.has('r')?'REPAIR '+Math.ceil(5-player.repairProgress)+'s':'DISABLED · HOLD R'):'READY';
+ if(disabledTracks||player?.turretDisabled||player?.engineDisabled){ctx.fillStyle='#ffc173';ctx.font='bold 15px monospace';ctx.textAlign='center';ctx.fillText(keys.has('r')?'REPAIRING PARTS · '+Math.ceil(5-player.repairProgress)+'s':'DAMAGED PARTS · HOLD R TO REPAIR',vw/2,vh-128);ctx.textAlign='left'}
+ const remaining=Math.max(0,Math.ceil(roundRemaining));$('roundTime').textContent=Math.floor(remaining/60)+':'+String(remaining%60).padStart(2,'0');
+ $('reinforcementTime').textContent=playing?Math.max(1,Math.ceil(10-reinforcementTimer))+'s':'10s';
+ $('speed').textContent=player?Math.round(Math.abs(player.speed)*terrainAt(player.x,player.y).speed):0;
+ $('hp').textContent=Math.max(0,Math.ceil(player?.hp??100));$('kills').textContent=kills;$('wave').textContent=wave;$('reload').textContent=(player?.turretDisabled||player?.engineDisabled)?'DISABLED':ready?'READY':(player?.cd??0).toFixed(1)+' s';$('capture').textContent=Math.floor(capture)+'%';if(paused){ctx.fillStyle='#0e150eaa';ctx.fillRect(0,0,vw,vh);ctx.fillStyle='#eeeade';ctx.font='bold 40px system-ui';ctx.textAlign='center';ctx.fillText('PAUSED',vw/2,vh/2);ctx.textAlign='left'}
+}
+let lastAimX=null,lastAimY=null;
+function adjustElevation(delta){if(player&&!player.turretDisabled&&!player.engineDisabled)player.elevation=Math.max(-Math.PI/15,Math.min(Math.PI*25/180,player.elevation+delta))}
+function aim(e){if(lastAimX!==null&&playing&&!paused&&player&&!player.turretDisabled&&!player.engineDisabled){player.turretTarget=normalize(player.turretTarget+Math.max(-80,Math.min(80,e.clientX-lastAimX))*(isAiming()?.0027:.006));if(lastAimY!==null)adjustElevation(-Math.max(-80,Math.min(80,e.clientY-lastAimY))*(isAiming()?.00135:.003));mouseAim=false}lastAimX=e.clientX;lastAimY=e.clientY}
+canvas.addEventListener('pointerleave',()=>{lastAimX=lastAimY=null});
 canvas.addEventListener('pointermove',aim);canvas.addEventListener('pointerdown',e=>{if(!playing||paused)return;aim(e);firing=true;canvas.setPointerCapture(e.pointerId)});for(const event of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(event,()=>firing=false);
-document.addEventListener('keydown',e=>{if(e.target.closest('button'))return;const k=e.key.toLowerCase();if(['w','a','s','d','q','e',' ','arrowup','arrowdown','arrowleft','arrowright','p'].includes(k))e.preventDefault();if(k==='p'&&!e.repeat)pause();else keys.add(k)});document.addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));window.addEventListener('blur',()=>{keys.clear();firing=false;if(playing&&!paused)pause()});document.querySelectorAll('[data-key]').forEach(b=>{b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture(e.pointerId);keys.add(b.dataset.key)});for(const event of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(event,()=>keys.delete(b.dataset.key))});$('play').onclick=start;$('pause').onclick=pause;
-function frame(now){const dt=Math.min(.035,(now-last)/1000);last=now;if(playing&&!paused)update(dt);draw();requestAnimationFrame(frame)}requestAnimationFrame(frame);
+document.addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(k==='escape'){e.preventDefault();if(!e.repeat)returnToLobby();return}if(e.target.closest('button'))return;if(['w','a','s','d','q','e',' ','arrowup','arrowdown','arrowleft','arrowright','p','r','t','g','shift','c'].includes(k))e.preventDefault();if(k==='p'&&!e.repeat)pause();else keys.add(k)});document.addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));window.addEventListener('blur',()=>{keys.clear();firing=false;if(playing&&!paused)pause()});document.querySelectorAll('[data-key]').forEach(b=>{b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture(e.pointerId);keys.add(b.dataset.key)});for(const event of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(event,()=>keys.delete(b.dataset.key))});$('play').onclick=start;$('pause').onclick=pause;$('lobby').onclick=returnToLobby;lobby();
+function frame(now){
+ const dt=last?Math.max(0,Math.min(.12,(now-last)/1000)):0;last=now;
+ // Keep simulation steps small without slowing the whole game during a heavy frame.
+ if(playing&&!paused&&dt>0){const steps=Math.ceil(dt/(1/60)),step=dt/steps;for(let i=0;i<steps&&playing&&!paused;i++)update(step)}
+ draw();requestAnimationFrame(frame);
+}requestAnimationFrame(frame);
 </script></body></html>
